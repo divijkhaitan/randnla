@@ -1,2 +1,2 @@
-# randblas
-An implementation of randBLAS written in Rust
+# randnla
+A package for ranomised numerical linear algebra written in Rust
