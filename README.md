@@ -1,2 +1,4 @@
 # randnla
-A package for ranomised numerical linear algebra written in Rust
+A package for randomised numerical linear algebra written in Rust.
+
+Rust Programming Project by Divij Khaitan and Saptarishi Dhanuka
