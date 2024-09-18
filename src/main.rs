@@ -1,3 +1,7 @@
-fn main() {
-    println!("Hello, world!");
+mod sample;
+
+fn main(){
+    for i in 0..3 {
+        println!("{}", i);
+    }
 }
