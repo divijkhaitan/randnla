@@ -52,7 +52,7 @@ pub fn sketching_operator(
     cols: usize
 ) -> DMatrix<f64> {
     let mut rng = rand::thread_rng();
-    let mut matrix = match dist_type {
+    let matrix = match dist_type {
         DistributionType::Gaussian => {
             let normal = Normal::new(0.0, 1.0).unwrap();
             DMatrix::from_fn(rows, cols, |_i, _j| normal.sample(&mut rng))
