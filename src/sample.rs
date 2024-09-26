@@ -1,7 +1,12 @@
 use nalgebra::DMatrix;
-use rand_distr::{Distribution, StandardNormal};
+use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
 use rand::thread_rng;
-// use approx::assert_relative_eq;
+
+pub enum DistributionType {
+    Gaussian,
+    Uniform,
+    Rademacher,
+}
 
 pub enum MatrixAttribute {
     Row,
@@ -41,20 +46,46 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> DMatri
     }
 }
 
-fn sum_of_squares_row(matrix: &DMatrix<f64>, row: usize) -> f64 {
-    matrix.row(row).dot(&matrix.row(row))
+pub fn sketching_operator(
+    dist_type: DistributionType, 
+    rows: usize, 
+    cols: usize
+) -> DMatrix<f64> {
+    let mut rng = rand::thread_rng();
+    let mut matrix = match dist_type {
+        DistributionType::Gaussian => {
+            let normal = Normal::new(0.0, 1.0).unwrap();
+            DMatrix::from_fn(rows, cols, |_i, _j| normal.sample(&mut rng))
+        },
+        DistributionType::Uniform => {
+            let uniform = Uniform::new(-1.0, 1.0);
+            DMatrix::from_fn(rows, cols, |_i, _j| uniform.sample(&mut rng))
+
+        },
+        DistributionType::Rademacher => {
+            let bernoulli = Bernoulli::new(0.5).unwrap();
+            DMatrix::from_fn(rows, cols, |_i, _j| if bernoulli.sample(&mut rng) { 1.0 } else { -1.0 })
+        }
+    };
+    matrix
 }
 
-fn sum_of_squares_column(matrix: &DMatrix<f64>, col: usize) -> f64 {
-    matrix.column(col).dot(&matrix.column(col))
-}
 
 #[cfg(test)]
 mod tests
 {
     use approx::assert_relative_eq;
-    use super::{MatrixAttribute, haar_sample, sum_of_squares_column, sum_of_squares_row};
+    use super::{MatrixAttribute, haar_sample};
     use rand::Rng;
+    use super::DMatrix;
+    fn sum_of_squares_row(matrix: &DMatrix<f64>, row: usize) -> f64 {
+        matrix.row(row).dot(&matrix.row(row))
+    }
+    
+    fn sum_of_squares_column(matrix: &DMatrix<f64>, col: usize) -> f64 {
+        matrix.column(col).dot(&matrix.column(col))
+    }
+    
     #[test]
     fn test_row_attribute() {
         let m = rand::thread_rng().gen_range(50..100);
@@ -107,9 +138,7 @@ mod tests
         // Orthogonal Columns
         for i in 0..n {
             for j in (i+1)..n{
-            if i != j{
                 assert_relative_eq!(result.column(i).dot(&result.column(j)), 0.0, epsilon = 1e-6);
-            }
             }
         }
         
