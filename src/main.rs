@@ -3,6 +3,7 @@ use sketch::haar_sample;
 mod sketch;
 mod sketch_and_solve;
 mod solvers;
+mod sketch_and_precondition;
 fn main() {
     let n = 6;
     let row_haar_matrix = haar_sample(n, n, sketch::MatrixAttribute::Row);
