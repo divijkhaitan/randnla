@@ -108,10 +108,10 @@ mod tests
                 data[(i, j)] += noise_vector[(j, 0)];
             }
         }
-        // compute using sketched qr
+        // compute using sketched SVD
         let x = sketched_least_squares_svd(&data, &y);
         
-        // compute using plain qr
+        // compute using SVD
         let svd_obj = data.svd(true, true);
         let u = svd_obj.u.unwrap();
         let sigma = DMatrix::from_diagonal(&svd_obj.singular_values);
