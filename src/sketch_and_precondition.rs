@@ -1,5 +1,6 @@
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, DVector};
 use crate::sketch::{sketching_operator, DistributionType};
+use crate::cg;
 // use crate::sketch_and_solve::sketched_least_squares_qr;
 // use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
@@ -40,50 +41,6 @@ fn compute_vector_norm_in_matrix(y:&DMatrix<f64>, a:&DMatrix<f64>) -> f64{
     norm
 }
 
-pub fn cgls(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon: f64, l: usize, z_0: &DMatrix<f64>) -> DMatrix<f64> {
-    
-    let a_t = a.transpose();  // Transpose of A
-    let refat = &a_t;
-    let a_t_a = refat*a;
-    let b_t = refat * b;  // A^T * b
-    let mut r = b_t - &a_t_a * z_0;  // Residual: A^T * (b - A * z_0)
-    
-    if compute_vector_norm(&r) < epsilon {
-        return z_0.clone();
-    }
-    
-    let mut p = r.clone();
-    let mut z = z_0.clone();  // Current solution estimate
-    let mut z_act: DMatrix<f64> = DMatrix::zeros(a.ncols(), 1);  // Placeholder for the active solution
-
-    for _ in 0..l {
-        // Compute alpha_k = (r^T * r) / (p^T * (A^T * A) * p)
-        let alpha_k = (compute_vector_norm(&r).powi(2)) / (compute_vector_norm_in_matrix(&p, &(refat * a)));
-        let alpha_scaled = alpha_k * &p;
-
-        // Update the solution z = z + alpha_k * p
-        z_act = z.clone() + alpha_scaled;
-        z = z_act.clone();
-
-        // Compute new residual r_new = r - alpha_k * (A^T * A) * p
-        let r_new = &r - alpha_k * &a_t_a * &p;
-
-        // Check for convergence
-        if compute_vector_norm(&r_new) < epsilon {
-            break;
-        }
-
-        // Compute beta_k = (r_new^T * r_new) / (r^T * r)
-        let beta_k = compute_vector_norm(&r_new).powi(2) / compute_vector_norm(&r).powi(2);
-
-        // Update p = r_new + beta_k * p
-        p = r_new.clone() + beta_k * &p;
-        r = r_new;
-    }
-
-    z.clone()
-}
-
 pub fn blendenpik_least_squares_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, l:usize, sampling_factor:f64) -> DMatrix<f64>
 {
     let d = if sampling_factor*(a.ncols() as f64) > a.nrows() as f64 {a.nrows()} else {(sampling_factor*(a.ncols() as f64)).floor() as usize};
@@ -96,11 +53,11 @@ pub fn blendenpik_least_squares_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>,
     let rinv = r.try_inverse().unwrap();
     let a_preconditioned = a*&rinv;
     // TODO: Replace with Iterative solver
-    let z = cgls(&a_preconditioned, &b, epsilon, l, &z_0);
+    let z = cg::cgls(&a_preconditioned, &b, epsilon, l, Some(z_0));
     rinv*z
 }
 
-fn lsrn( a: &DMatrix<f64>, b: &DMatrix<f64>, sampling_factor: f64, epsilon: f64, l: usize) -> DMatrix<f64> {
+fn lsrn(a: &DMatrix<f64>, b: &DMatrix<f64>, sampling_factor: f64, epsilon: f64, l: usize) -> DMatrix<f64> {
     let m = a.nrows();
     let n = a.ncols();
     
@@ -121,7 +78,7 @@ fn lsrn( a: &DMatrix<f64>, b: &DMatrix<f64>, sampling_factor: f64, epsilon: f64,
     let n = v*&sigma_inv;
     let a_precond = a*&n;
     let mut y_hat = DMatrix::zeros(sigma_inv.ncols(), 1);
-    y_hat = cgls(&a_precond, b, epsilon, l,  &y_hat);
+    y_hat = cg::cgls(&a_precond, b, epsilon, l,  Some(y_hat), );
     n* y_hat
 }
 
@@ -137,14 +94,9 @@ pub fn lsrn_least_squares_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsil
     let z_0 = q.transpose()*&b_sk;
     let rinv = r.try_inverse().unwrap();
     let a_preconditioned = a*&rinv;
-    let z = cgls(&a_preconditioned, &b, epsilon, l, &z_0);
+    let z = cg::cgls(&a_preconditioned, b, epsilon, l, Some(z_0));
     rinv*z
 }
-
-// pub fn sketch_saddle_point_precondition(a:DMatrix<f64>, b:DMatrix<f64>, c:DMatrix<f64>, mu:f64, epsilon:f64, L:i32) -> DMatrix<f64>
-// {
-
-// }
 
 #[cfg(test)]
 mod tests
@@ -176,7 +128,7 @@ mod tests
         }
         let start1 = Instant::now();
         // compute using sketched qr
-        let x = lsrn_least_squares_overdetermined(&data, &y, 0.0001, 10000, 4.0);
+        let x = blendenpik_least_squares_overdetermined(&data, &y, 0.0001, 10000, 4.0);
         let duration1 = start1.elapsed();
         // compute using plain qr
         let start2 = Instant::now();
@@ -200,12 +152,6 @@ mod tests
         }
         println!("{}, {}, {}, {}, {}, {}", norm1, norm2, norm3, norm4, norm5, norm6);
         println!("Time for sketched algorithm vs time for qr factorisation: {:.2?} {:.2?} ", duration1, duration2);
-        // assert!((norm1 < 0.2));
-        // assert!((norm2 < 0.2));
-        // assert!((norm3 < 0.2));
-        // println!("Hypothesis: \n{}", hypothesis);
-        // println!("Unsketched Solution: \n{}", actual_solution);
-
     }
     
 }

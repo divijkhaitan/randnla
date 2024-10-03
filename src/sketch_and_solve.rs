@@ -1,5 +1,5 @@
-use nalgebra::DMatrix;
-use crate::sketch::{sketching_operator, DistributionType};
+use nalgebra::{DMatrix, DVector};
+use crate::sample::{sketching_operator, DistributionType};
 use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
 pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>
