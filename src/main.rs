@@ -1,18 +1,21 @@
-mod sample;
-mod cg;
-
 use nalgebra::{DMatrix, DVector, dmatrix, dvector};
 use rand::Rng;
 use std::time::Instant;
 
+use rand_123::rng::ThreeFry2x64Rng;
+use rand_core::{SeedableRng, RngCore};
+
+
+mod sample;
+mod cg;
+
 fn main() {
+    let mut rng = ThreeFry2x64Rng::seed_from_u64(0);
+    for _ in 0..5 {
+        println!("{}", rng.next_u64());
+    }
     test_solvers();
-   
 }
-
-
-
-
 
 
 
