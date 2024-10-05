@@ -1,5 +1,43 @@
 use nalgebra::{DMatrix, DVector};
 
+pub fn cgls(
+    a: &DMatrix<f64>,
+    b: &DMatrix<f64>,
+    tolerance: f64,
+    num_iterations: usize,
+    x: Option<DMatrix<f64>>,
+) -> DMatrix<f64> {
+    // let m = a.nrows();
+    let n = a.ncols();
+    
+    let mut x = x.unwrap_or_else(|| DMatrix::from_element(1, n, 0.0 as f64)); // Initial guess is zero
+    let mut r = b - a * &x;              // Initial residual r = b - A * x
+    let s = a.transpose() * &r;      // s = A^T * r
+    let mut p = s.clone();               // Initial search direction
+    let mut norm_s = s.dot(&s);          // Residual norm squared
+    
+    for i in 0..num_iterations {
+        let ap = a * &p;                     // A * p
+        let alpha = norm_s / ap.dot(&ap);    // Step size alpha
+        x += alpha * &p;                     // Update solution x
+        r -= alpha * ap;                     // Update residual r
+        let s_new = a.transpose() * &r;      // s_new = A^T * r
+        let norm_s_new = s_new.dot(&s_new);  // New residual norm squared
+
+        // Convergence check based on tolerance
+        if norm_s_new.sqrt() < tolerance {
+            println!("CGLS converged after {} iterations", i + 1);
+            break;
+        }
+
+        let beta = norm_s_new / norm_s;      // Compute beta for next direction
+        norm_s = norm_s_new;
+        p = &s_new + beta * p;               // Update search direction
+    }
+    
+    x
+}
+
 pub fn conjugate_grad(a: &DMatrix<f64>, b: &DVector<f64>, x: Option<DVector<f64>>) -> DVector<f64> {
     let n = b.len();
     let mut x = x.unwrap_or_else(|| DVector::from_element(n, 1.0));
