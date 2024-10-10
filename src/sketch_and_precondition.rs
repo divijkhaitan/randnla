@@ -1,50 +1,11 @@
-use nalgebra::{DMatrix, DVector};
+use nalgebra::DMatrix;
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::cg;
-// use crate::sketch_and_solve::sketched_least_squares_qr;
-// use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
-
-fn compute_vector_norm(x:&DMatrix<f64>) -> f64{
-    let mut norm = 0.0;
-    if x.nrows() == 1{
-        for i in 0..x.ncols(){
-            norm+= (x[(i, 0)]).powf(2.0);
-        }
-    }
-    else if x.ncols() == 1{
-        for i in 0..x.nrows(){
-            norm+= (x[(i, 0)]).powf(2.0);
-        }
-    }
-    else{
-        println!("Not a vector");
-    }
-    norm
-}
-
-fn compute_vector_norm_in_matrix(y:&DMatrix<f64>, a:&DMatrix<f64>) -> f64{
-    let x = y.transpose()*a*y;
-    let mut norm = 0.0;
-    if x.nrows() == 1{
-        for i in 0..x.ncols(){
-            norm+= (x[(0, i)]).powf(2.0);
-        }
-    }
-    else if x.ncols() == 1{
-        for i in 0..x.nrows(){
-            norm+= (x[(0, i)]).powf(2.0);
-        }
-    }
-    else{
-        println!("Not a vector");
-    }
-    norm
-}
 
 pub fn blendenpik_least_squares_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, l:usize, sampling_factor:f64) -> DMatrix<f64>
 {
     let d = if sampling_factor*(a.ncols() as f64) > a.nrows() as f64 {a.nrows()} else {(sampling_factor*(a.ncols() as f64)).floor() as usize};
-    let s = sketching_operator(DistributionType::Gaussian, d, a.nrows());
+    let s = sketching_operator(DistributionType::Gaussian, d, a.nrows()).unwrap();
     let a_sk = &s*a;
     let b_sk = &s*b;
     let (q, r) = a_sk.qr().unpack();
@@ -57,36 +18,10 @@ pub fn blendenpik_least_squares_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>,
     rinv*z
 }
 
-fn lsrn(a: &DMatrix<f64>, b: &DMatrix<f64>, sampling_factor: f64, epsilon: f64, l: usize) -> DMatrix<f64> {
-    let m = a.nrows();
-    let n = a.ncols();
-    
-    let d = (sampling_factor * n as f64).ceil() as usize;
-    let s = sketching_operator(DistributionType::Gaussian, d, m);
-    let a_sk = &s * a;
-
-    let svd_obj = a_sk.svd(false, true);
-    let sigma = DMatrix::from_diagonal(&svd_obj.singular_values);
-    let v = svd_obj.v_t.unwrap().transpose();
-    
-    let mut sigma_inv = DMatrix::zeros(n, n);
-    for i in 0..n {
-        if sigma[i] > 0.0 {
-            sigma_inv[(i, i)] = 1.0 / sigma[i];
-        }
-    }
-    let n = v*&sigma_inv;
-    let a_precond = a*&n;
-    let mut y_hat = DMatrix::zeros(sigma_inv.ncols(), 1);
-    y_hat = cg::cgls(&a_precond, b, epsilon, l,  Some(y_hat), );
-    n* y_hat
-}
-
-
 pub fn lsrn_least_squares_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, l:usize, sampling_factor:f64) -> DMatrix<f64>
 {
     let d = if sampling_factor*(a.ncols() as f64) > a.nrows() as f64 {a.nrows()} else {(sampling_factor*(a.ncols() as f64)).floor() as usize};
-    let s = sketching_operator(DistributionType::Gaussian, d, a.nrows());
+    let s = sketching_operator(DistributionType::Gaussian, d, a.nrows()).unwrap();
     let a_sk = &s*a;
     let b_sk = &s*b;
     let (q, r) = a_sk.qr().unpack();
@@ -117,7 +52,7 @@ mod tests
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
         let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
-        let mut data = sketching_operator(DistributionType::Gaussian, m, n);
+        let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
             let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
