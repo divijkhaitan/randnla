@@ -1,4 +1,3 @@
-mod sample;
 mod sketch;
 mod cg;
 mod solvers;
@@ -7,6 +6,7 @@ mod sketch_and_solve;
 use nalgebra::{DMatrix, DVector};
 use rand::Rng;
 use std::time::Instant;
+mod errors;
 
 fn main() {
     let n = 10; // Size of the problem

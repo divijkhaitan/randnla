@@ -1,25 +1,8 @@
 use nalgebra::DMatrix;
 use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
 use rand::thread_rng;
+use crate::errors::DimensionError;
 use std::error::Error;
-
-#[derive(Debug)]
-pub enum DimensionError {
-    InvalidDimensions(String),
-    NegativeDimensions(String),
-}
-
-impl std::fmt::Display for DimensionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DimensionError::InvalidDimensions(msg) => write!(f, "{}", msg),
-            DimensionError::NegativeDimensions(msg) => write!(f, "{}", msg),
-        }
-    }
-}
-
-impl Error for DimensionError {}
-
 pub enum DistributionType {
     Gaussian,
     Uniform,
@@ -65,8 +48,14 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result
     let data: Vec<f64> = normal.take(m * n).collect();
 
     let matrix = DMatrix::from_vec(m, n, data);
-    let (q, _) = matrix.qr().unpack();
+    let (mut q, r) = matrix.qr().unpack();
+    for i in 0..q.ncols() {
+        // Get the sign of the diagonal element from r
+        let sign = r[(i, i)].signum();
 
+        // Scale the i-th column of q by this sign
+        q.set_column(i, &(&q.column(i) * sign));
+    }
     match attr {
         MatrixAttribute::Row => Ok(q.transpose()),
         MatrixAttribute::Column => Ok(q),
@@ -106,7 +95,6 @@ pub fn sketching_operator(
 
 
 #[cfg(test)]
-#[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
     use super::{MatrixAttribute, haar_sample, sketching_operator, DistributionType};
@@ -145,8 +133,8 @@ mod tests {
 
     #[test]
     fn test_haar_sample_column_attribute() {
-        let n = rand::thread_rng().gen_range(50..100);
-        let m = rand::thread_rng().gen_range(n..500);
+        let n = rand::thread_rng().gen_range(100..150);
+        let m = rand::thread_rng().gen_range(500..5000);
         
         // Case 3: m > n (should not return an error)
         let result = haar_sample(m, n, MatrixAttribute::Column);
