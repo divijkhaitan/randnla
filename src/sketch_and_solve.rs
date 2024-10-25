@@ -2,6 +2,11 @@ use nalgebra::DMatrix;
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
+
+use rand::distributions::DistIter;
+use rand_123::rng::ThreeFry2x64Rng;
+use rand_core::SeedableRng;
+
 pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
     let s: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = sketching_operator(DistributionType::Gaussian, rows/2, rows).unwrap();
