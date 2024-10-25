@@ -7,7 +7,7 @@ use nalgebra::{DMatrix, DVector};
 use rand::Rng;
 use std::time::Instant;
 mod errors;
-
+mod pivot_decompositions;
 fn main() {
     let n = 10; // Size of the problem
     // Generate a test problem
