@@ -193,6 +193,8 @@ name = "rand_123"
 version = "0.1.0"
 dependencies = [
  "rand_core 0.3.1",
+ "rand",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
