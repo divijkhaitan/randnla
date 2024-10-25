@@ -4,7 +4,6 @@ use rand::Rng;
 use std::time::Instant;
 
 use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-use rand::thread_rng;
 
 use rand::distributions::DistIter;
 
@@ -19,35 +18,21 @@ mod sketch_and_solve;
 
 
 
+pub enum DistributionType {
+    Gaussian,
+    Uniform,
+    Rademacher,
+}
 
 
 fn main() {
-    
-    let mut rng_thread = rand::thread_rng();
-    for _ in 0..5 {
-        println!("Thread random number: {}", rng_thread.gen::<u64>());
-    }
 
-    let normal = StandardNormal.sample_iter(&mut rng_thread);
-    println!("Normal: {:?}", normal);
-    let data: Vec<f64> = normal.take(2 * 2).collect();
-    println!("Data: {:?}", data);
-
-
-    println!("--------------------------------");
 
     let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-    for _ in 0..5 {
-        println!("Threefry random number: {}", rng_threefry.next_u64());
-    }
-    // let threefry_normal = StandardNormal.sample_iter(&mut rng_threefry);
-
     let threefry_normal: DistIter<StandardNormal, &mut ThreeFry2x64Rng, f64> = StandardNormal.sample_iter(&mut rng_threefry);
-    // let normal_threefry = StandardNormal.sample_iter(&mut rng_threefry);
     let data: Vec<f64> = threefry_normal.take(2 * 2).collect();
-    println!("Threefry Data: {:?}", data);
-    
 
+    println!("Threefry Data: {:?}", data);
 
     // test_solvers();
 }
@@ -68,9 +53,10 @@ fn test_solvers() {
     test_cg_method(a, b);
 } 
 fn generate_test_problem(n: usize) -> (DMatrix<f64>, DVector<f64>) {
-    let mut rng = rand::thread_rng();
+    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
     
-    let p: DMatrix<f64> = DMatrix::from_fn(n, n, |_, _| rng.gen_range(0.0..1.0));
+    
+    let p: DMatrix<f64> = DMatrix::from_fn(n, n, |_, _| rng_threefry.gen_range(0.0..1.0));
     let a = &p.transpose() * &p;
     let b = DVector::from_element(n, 1.0);
     (a, b)

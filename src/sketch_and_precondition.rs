@@ -1,6 +1,9 @@
 use nalgebra::{DMatrix, DVector};
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::cg;
+use rand::distributions::DistIter;
+use rand_123::rng::ThreeFry2x64Rng;
+use rand_core::SeedableRng;
 // use crate::sketch_and_solve::sketched_least_squares_qr;
 // use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
@@ -110,9 +113,9 @@ mod tests
     fn test_sketch_and_precondition_overdetermined_least_squares()
     {
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
-        let mut rng = rand::thread_rng();
-        let n = rand::thread_rng().gen_range(100..150);
-        let m = rand::thread_rng().gen_range(500..5000);
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let n = rng_threefry.gen_range(100..150);
+        let m = rng_threefry.gen_range(500..5000);
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);

@@ -1,6 +1,5 @@
 use nalgebra::DMatrix;
 use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-use rand::thread_rng;
 
 pub enum DistributionType {
     Gaussian,
@@ -12,6 +11,10 @@ pub enum MatrixAttribute {
     Row,
     Column,
 }
+
+use rand::distributions::DistIter;
+use rand_123::rng::ThreeFry2x64Rng;
+use rand_core::SeedableRng;
 
 pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> DMatrix<f64> {
     // Ensuring valid matrix dimensions, an orthonormal matrix cannot have 
@@ -33,9 +36,9 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> DMatri
         }
     };
 
-    let mut rng = thread_rng();
-    let normal = StandardNormal.sample_iter(&mut rng);
-    let data: Vec<f64> = normal.take(m * n).collect();
+    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+    let threefry_normal: DistIter<StandardNormal, &mut ThreeFry2x64Rng, f64> = StandardNormal.sample_iter(&mut rng_threefry);
+    let data: Vec<f64> = threefry_normal.take(m * n).collect();
 
     let matrix = DMatrix::from_vec(m, n, data);
     let (q, _) = matrix.qr().unpack();
@@ -51,20 +54,20 @@ pub fn sketching_operator(
     rows: usize, 
     cols: usize
 ) -> DMatrix<f64> {
-    let mut rng = rand::thread_rng();
+    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
     let matrix = match dist_type {
         DistributionType::Gaussian => {
             let normal = Normal::new(0.0, 1.0).unwrap();
-            DMatrix::from_fn(rows, cols, |_i, _j| normal.sample(&mut rng))
+            DMatrix::from_fn(rows, cols, |_i, _j| normal.sample(&mut rng_threefry))
         },
         DistributionType::Uniform => {
             let uniform = Uniform::new(-1.0, 1.0);
-            DMatrix::from_fn(rows, cols, |_i, _j| uniform.sample(&mut rng))
+            DMatrix::from_fn(rows, cols, |_i, _j| uniform.sample(&mut rng_threefry))
 
         },
         DistributionType::Rademacher => {
             let bernoulli = Bernoulli::new(0.5).unwrap();
-            DMatrix::from_fn(rows, cols, |_i, _j| if bernoulli.sample(&mut rng) { 1.0 } else { -1.0 })
+            DMatrix::from_fn(rows, cols, |_i, _j| if bernoulli.sample(&mut rng_threefry) { 1.0 } else { -1.0 })
         }
     };
     matrix
@@ -88,8 +91,9 @@ mod tests
     
     #[test]
     fn test_row_attribute() {
-        let m = rand::thread_rng().gen_range(50..100);
-        let n = rand::thread_rng().gen_range(m..500);
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let m = rng_threefry.gen_range(50..100);
+        let n = rng_threefry.gen_range(m..500);
         
         // Case 1: m < n (should not panic)
         let result = haar_sample(m, n, MatrixAttribute::Row);
@@ -115,16 +119,17 @@ mod tests
         }
         
         // Case 2: m > n (should panic)
-        let n = rand::thread_rng().gen_range(50..100);
-        let m = rand::thread_rng().gen_range(n..500);
+        let n = rng_threefry.gen_range(50..100);
+        let m = rng_threefry.gen_range(n..500);
         let result = std::panic::catch_unwind(|| haar_sample(m, n, MatrixAttribute::Row));
         assert!(result.is_err());
     }
     
     #[test]
     fn test_column_attribute() {
-        let n = rand::thread_rng().gen_range(50..100);
-        let m = rand::thread_rng().gen_range(n..500);
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let n = rng_threefry.gen_range(50..100);
+        let m = rng_threefry.gen_range(n..500);
         
         // Case 3: m > n (should not panic)
         let result = haar_sample(m, n, MatrixAttribute::Column);
@@ -149,8 +154,8 @@ mod tests
         }
         
         // Case 4: m < n (should panic)
-        let m = rand::thread_rng().gen_range(50..100);
-        let n = rand::thread_rng().gen_range(m..500);
+        let m = rng_threefry.gen_range(50..100);
+        let n = rng_threefry.gen_range(m..500);
         let result = std::panic::catch_unwind(|| haar_sample(m, n, MatrixAttribute::Column));
         assert!(result.is_err());
     }
