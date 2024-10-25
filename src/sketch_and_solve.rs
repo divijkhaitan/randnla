@@ -2,8 +2,7 @@ use nalgebra::DMatrix;
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
-pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>
-{
+pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
     let s: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = sketching_operator(DistributionType::Gaussian, rows/2, rows).unwrap();
     let a_sk = &s*a;
@@ -14,8 +13,7 @@ pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f6
     x
 }
 
-pub fn sketched_least_squares_svd(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>
-{
+pub fn sketched_least_squares_svd(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
     let sketchop = sketching_operator(DistributionType::Gaussian, rows/2, rows).unwrap();
     let a_sk = &sketchop*a;
@@ -42,8 +40,7 @@ mod tests
     use super::{sketched_least_squares_qr, sketched_least_squares_svd};
     use crate::{sketch::{sketching_operator, DistributionType}, solvers::{solve_upper_triangular_system, solve_diagonal_system}};
     #[test]
-    fn test_least_squares_qr()
-    {
+    fn test_least_squares_qr(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
         let mut rng = rand::thread_rng();
         let n = rand::thread_rng().gen_range(10..30);
@@ -90,8 +87,7 @@ mod tests
 
     }
     #[test]
-    fn test_least_squares_svd()
-    {
+    fn test_least_squares_svd(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
         let mut rng = rand::thread_rng();
         let n = rand::thread_rng().gen_range(10..30);

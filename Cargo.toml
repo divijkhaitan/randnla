@@ -11,5 +11,12 @@ num-traits = "0.2.19"
 rand_core = "0.3.0"
 rand_123 = { path = "./rust-random123" }
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "randblas"
+path = "src/main.rs"
+
 [dev-dependencies]
 approx = "0.5.1"
