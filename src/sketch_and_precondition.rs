@@ -1,6 +1,9 @@
 use nalgebra::DMatrix;
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::cg;
+use rand::distributions::DistIter;
+use rand_123::rng::ThreeFry2x64Rng;
+use rand_core::SeedableRng;
 use crate::errors::DimensionError;
 use std::error::Error;
 

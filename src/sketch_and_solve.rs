@@ -42,9 +42,9 @@ mod tests
     #[test]
     fn test_least_squares_qr(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
-        let mut rng = rand::thread_rng();
-        let n = rand::thread_rng().gen_range(10..30);
-        let m = rand::thread_rng().gen_range(n..500);
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let n = rng_threefry.gen_range(10..30);
+        let m = rng_threefry.gen_range(n..500);
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
@@ -89,9 +89,9 @@ mod tests
     #[test]
     fn test_least_squares_svd(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
-        let mut rng = rand::thread_rng();
-        let n = rand::thread_rng().gen_range(10..30);
-        let m = rand::thread_rng().gen_range(n..500);
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let n = rng_threefry.gen_range(10..30);
+        let m = rng_threefry.gen_range(n..500);
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
