@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use rand_123::rng::ThreeFry2x64Rng;
 
-mod sample;
+mod errors;
 mod sketch;
 mod cg;
 mod solvers;

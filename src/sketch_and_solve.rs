@@ -1,11 +1,10 @@
-use nalgebra::{DMatrix, DVector};
-use crate::sample::{sketching_operator, DistributionType};
+use nalgebra::DMatrix;
+use crate::sketch::{sketching_operator, DistributionType};
 use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
-pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>
-{
+pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
-    let s: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = sketching_operator(DistributionType::Gaussian, rows/2, rows);
+    let s: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = sketching_operator(DistributionType::Gaussian, rows/2, rows).unwrap();
     let a_sk = &s*a;
     let mut b_sk = &s*b;
     let (q , r) = a_sk.qr().unpack();
@@ -14,10 +13,9 @@ pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f6
     x
 }
 
-pub fn sketched_least_squares_svd(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>
-{
+pub fn sketched_least_squares_svd(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
-    let sketchop = sketching_operator(DistributionType::Gaussian, rows/2, rows);
+    let sketchop = sketching_operator(DistributionType::Gaussian, rows/2, rows).unwrap();
     let a_sk = &sketchop*a;
     let mut b_sk = &sketchop*b;
     let svd_obj = a_sk.svd(true, true);
@@ -42,8 +40,7 @@ mod tests
     use super::{sketched_least_squares_qr, sketched_least_squares_svd};
     use crate::{sketch::{sketching_operator, DistributionType}, solvers::{solve_upper_triangular_system, solve_diagonal_system}};
     #[test]
-    fn test_least_squares_qr()
-    {
+    fn test_least_squares_qr(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
         let mut rng = rand::thread_rng();
         let n = rand::thread_rng().gen_range(10..30);
@@ -52,7 +49,7 @@ mod tests
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
         let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
-        let mut data = sketching_operator(DistributionType::Gaussian, m, n);
+        let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
             let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
@@ -90,8 +87,7 @@ mod tests
 
     }
     #[test]
-    fn test_least_squares_svd()
-    {
+    fn test_least_squares_svd(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
         let mut rng = rand::thread_rng();
         let n = rand::thread_rng().gen_range(10..30);
@@ -100,7 +96,7 @@ mod tests
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
         let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
-        let mut data = sketching_operator(DistributionType::Gaussian, m, n);
+        let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
             let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
