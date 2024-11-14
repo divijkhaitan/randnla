@@ -219,7 +219,7 @@ mod tests
         let k = rand::thread_rng().gen_range(n/2..n);
         let data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         
-        let (q_cp, r_cp, p) = economic_qrcp(&data, k);
+        let (q_cp, r_cp, _) = economic_qrcp(&data, k);
         // let p_cp = permutation_vector_to_transpose_matrix(&p);
         
         let qtq = &q_cp.transpose()*&q_cp;

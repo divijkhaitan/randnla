@@ -62,7 +62,6 @@ fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMat
     let a_sk = &s * a;
 
     // Compute SVD of A^sk
-    let (a_sk_nrows, a_sk_ncols) = a_sk.shape();
     let svd_obj = a_sk.svd(true, true);
     let u = svd_obj.u.unwrap();
     let sigma = svd_obj.singular_values;
@@ -223,7 +222,7 @@ mod tests
         
         let start1 = Instant::now();
         // compute using sketched algorithm
-        let (sketched_solution, sketched_dual_solution) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 1000, 1.5).unwrap();
+        let (sketched_solution, _sketched_dual_solution) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 1000, 1.5).unwrap();
         let duration1 = start1.elapsed();
         
         // compute using SVD
@@ -261,7 +260,6 @@ mod tests
     
     #[test]    
     fn test_lsrn_overdetermined(){
-        let start = Instant::now();
         let n = rand::thread_rng().gen_range(1000..1500);
         let m = rand::thread_rng().gen_range(5000..50000);
         let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);

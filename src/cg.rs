@@ -1,5 +1,3 @@
-use core::num;
-
 use nalgebra::{DMatrix, DVector};
 
 pub fn cgls(
