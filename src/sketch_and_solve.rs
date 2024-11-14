@@ -43,6 +43,7 @@ mod tests
     use nalgebra::DMatrix;
     use super::{sketched_least_squares_qr, sketched_least_squares_svd};
     use crate::{sketch::{sketching_operator, DistributionType}, solvers::{solve_upper_triangular_system, solve_diagonal_system}};
+    use crate::rand_123::rng::ThreeFry2x64Rng;
     #[test]
     fn test_least_squares_qr(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
@@ -52,11 +53,11 @@ mod tests
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
-        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
+        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng_threefry));
         let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
-            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
+            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng_threefry));
             for j in 0..n {
                 data[(i, j)] += noise_vector[(j, 0)];
             }
@@ -90,11 +91,11 @@ mod tests
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
-        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
+        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng_threefry));
         let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
-            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
+            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng_threefry));
             for j in 0..n {
                 data[(i, j)] += noise_vector[(j, 0)];
             }

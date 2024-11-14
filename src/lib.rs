@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 extern crate rand_core;
 extern crate rand;
 extern crate rand_123;

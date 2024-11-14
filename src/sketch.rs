@@ -18,7 +18,7 @@ use rand::distributions::DistIter;
 use rand_123::rng::ThreeFry2x64Rng;
 use rand_core::SeedableRng;
 
-pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> DMatrix<f64> {
+pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result<DMatrix<f64>, Box<dyn Error>> {
     // Ensuring valid matrix dimensions, an orthonormal matrix cannot have 
     let (m, n) = match attr {
         MatrixAttribute::Row => {
@@ -41,7 +41,7 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> DMatri
         }
     };
 
-    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+    let mut rng_threefry = ThreeFry2x64Rng::from_seed();
     let threefry_normal: DistIter<StandardNormal, &mut ThreeFry2x64Rng, f64> = StandardNormal.sample_iter(&mut rng_threefry);
     let data: Vec<f64> = threefry_normal.take(m * n).collect();
 
@@ -71,7 +71,7 @@ pub fn sketching_operator(
             "Rows and columns must be greater than 0".to_string(),
         )));
     }
-    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+    let mut rng_threefry = ThreeFry2x64Rng::from_from_seed();
     let matrix = match dist_type {
         DistributionType::Gaussian => {
             let normal = Normal::new(0.0, 1.0).unwrap();
@@ -97,10 +97,11 @@ mod tests {
     use approx::assert_relative_eq;
     use super::{MatrixAttribute, haar_sample, sketching_operator, DistributionType};
     use rand::Rng;
-    
+    use crate::rand_123::rng::ThreeFry2x64Rng;
+    use rand_core::{SeedableRng, RngCore};
     #[test]
     fn test_row_attribute() {
-        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let mut rng_threefry = ThreeFry2x64Rng::from_seed();
         let m = rng_threefry.gen_range(50..100);
         let n = rng_threefry.gen_range(m..500);
         
@@ -125,7 +126,7 @@ mod tests {
     
         // Columns have magnitude at most 1
         for j in 0..n {
-            let sum = sum_of_squares_column(&result, j);
+            let sum = result.column(j).norm();
             assert!(sum >= 0.0 && sum <= 1.0);
         }
         
@@ -138,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_column_attribute() {
-        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let mut rng_threefry = ThreeFry2x64Rng::from_seed();
         let n = rng_threefry.gen_range(50..100);
         let m = rng_threefry.gen_range(n..500);
         
@@ -162,8 +163,8 @@ mod tests {
         }
         
         // Rows have magnitude at most 1
-        for i in 0..m {
-            let sum = sum_of_squares_row(&result, i);
+        for j in 0..n {
+            let sum = result.row(j).norm();
             assert!(sum >= 0.0 && sum <= 1.0);
         }
         
