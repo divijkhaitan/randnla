@@ -240,6 +240,7 @@ mod tests {
         
         println!("Difference Deterministic: {}", (&y_approx-&matrix).norm()/(matrix.norm()));
         println!("Difference Randomised: {}", (&y_random_approx-&matrix).norm()/(matrix.norm()));
+        println!("Difference Between Approximations: {}", (&y_approx-&y_random_approx).norm());
         println!("Deterministic Time: {:.2?}, Randomised Time:{:.2?}", end1, end2);
         println!("{}", k);
     }
@@ -266,6 +267,7 @@ mod tests {
         let duration2 = start2.elapsed();
         
         println!("Difference (Deterministic, Randomised): {}, {}", (&y_approx-&matrix).norm()/(matrix.norm()), (&y_approx_random-&matrix).norm()/(matrix.norm()));
+        println!("Difference Between Approximations: {}", (&y_approx-&y_approx_random).norm());
         println!("Time (Deterministic, Randomised): {:.2?} {:.2?}", duration1, duration2);
         println!("{}", k);
     }
@@ -294,6 +296,7 @@ mod tests {
         let duration2 = start2.elapsed();
         
         println!("Difference (Deterministic, Randomised): {}, {}", (&y_approx-&matrix).norm()/(matrix.norm()), (&y_approx_random-&matrix).norm()/(matrix.norm()));
+        println!("Difference Between Approximations: {}", (&y_approx-&y_approx_random).norm());
         println!("Time (Deterministic, Randomised): {:.2?} {:.2?}", duration1, duration2);
         println!("{}", k);
     }
