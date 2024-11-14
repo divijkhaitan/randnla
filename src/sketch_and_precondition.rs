@@ -17,7 +17,6 @@ pub fn blendenpik_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, 
     let a_sk = &s*a;
     let b_sk = &s*b;
     let (q, r) = a_sk.qr().unpack();
-    println!("b shape :({} {}), q shape: ({} {})",b_sk.nrows(), b_sk.ncols(), q.nrows(), q.ncols());
     let z_0 = q.transpose()*&b_sk;
     let rinv = r.try_inverse().unwrap();
     let a_preconditioned = a*&rinv;
@@ -63,7 +62,6 @@ fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMat
     let a_sk = &s * a;
 
     // Compute SVD of A^sk
-    let (a_sk_nrows, a_sk_ncols) = a_sk.shape();
     let svd_obj = a_sk.svd(true, true);
     let u = svd_obj.u.unwrap();
     let sigma = svd_obj.singular_values;
@@ -76,42 +74,26 @@ fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMat
         let k = sigma.iter().take_while(|&&s| s > 1e-10).count();
         &vt.transpose().columns(0, k) * DMatrix::from_diagonal(&sigma.rows(0, k).map(|s| 1.0 / s))
     };
-    println!("a shape ({}, {}), b shape ({}, {}), c shape ({}, {})", a.nrows(), a.ncols(), b.nrows(), b.ncols(), c.nrows(), c.ncols());
-    println!("a_sk shape ({}, {}), m shape ({}, {})", a_sk_nrows, a_sk_ncols, m.nrows(), m.ncols());
-    println!("u shape ({}, {}), sigma shape ({}, {}), v shape ({}, {})", u.nrows(), u.ncols(), sigma.nrows(), sigma.ncols(), vt.nrows(), vt.ncols());
-    
     // Preconditioned matrix (Can be replaced with Efficient Operator for performance)
     let a_precond = a * &m;
-    println!("a_precond shape ({}, {}), s shape ({}, {}), b shape ({}, {})", a_precond.nrows(), a_precond.ncols(), s.nrows(), s.ncols(), b.nrows(), b.ncols());
-
     // Compute b_mod
     let mut b_mod =  b.clone();
     if !c.is_empty() {
         let b_shift = &vt * c;
-        println!("b_shift Shape: ({}, {})", b_shift.nrows(), b_shift.ncols());
         let temp = if mu > 0.0 {
-            println!("Mu Nonzero");
             let matrix = DMatrix::from_diagonal(&sigma.map(|x| 1.0 / (x.powi(2) + mu).sqrt()));
             &s.transpose()*(&u*(matrix*b_shift))
         } else {
             // let k = sigma.iter().take_while(|&&s| s > 0).count();
             &s.transpose() * (&u * (DMatrix::from_diagonal(&sigma.map(|s| 1.0 / s))*b_shift))
         };
-        println!("Temp Shape ({}, {}), b_mod Shape ({}, {})", temp.nrows(), temp.ncols(), b_mod.nrows(), b_mod.ncols());
         b_mod -= temp;
     }
-    // println!("a shape ({}, {}), b shape ({}, {}), c shape ({}, {})", a.nrows(), a.ncols(), b.nrows(), b.ncols(), c.nrows(), c.ncols());
     // Compute initial guess z0
     let z0 = &u.transpose() * &(&s * &b_mod);
-    println!("Guessed");
-
+    
     // Solve the preconditioned system using CGLS
-    println!("a shape ({}, {}), b shape ({}, {}), c shape ({}, {}), s shape ({}, {})", a.nrows(), a.ncols(), b.nrows(), b.ncols(), c.nrows(), c.ncols(), s.nrows(), s.ncols());
-    println!("u shape ({}, {}), sigma shape ({}, {}), v shape ({}, {}), c shape ({}, {})", u.nrows(), u.ncols(), sigma.nrows(), sigma.ncols(), vt.nrows(), vt.ncols(), c.nrows(), c.ncols());
-    println!("a shape ({}, {}), b shape ({}, {}), c shape ({}, {}), s shape ({}, {})", a_precond.nrows(), a_precond.ncols(), b_mod.nrows(), b_mod.ncols(), c.nrows(), c.ncols(), s.nrows(), s.ncols());
     let z = cg::cgls(&a_precond, &b_mod, epsilon, l, Some(z0));
-    println!("Solved");
-
     // Compute final solution
     let x = &m * &z;
     let y = b - a * &x;
@@ -134,12 +116,9 @@ mod tests
         assert!(m > n, "m must be greater than n for a tall matrix");
         
         let mut rng = rand::thread_rng();
-        let normal = Normal::new(0.0, 1.0).unwrap();
+        let mut a = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
     
-        // Generate a random tall matrix
-        let mut a = DMatrix::from_fn(m, n, |_, _| normal.sample(&mut rng));
-    
-        // Perform a modified Gram-Schmidt process
+        // Modified Gram-Schmidt
         for i in 0..n {
             let mut v = a.column(i).clone_owned();
             for j in 0..i {
@@ -150,7 +129,7 @@ mod tests
             a.set_column(i, &v);
         }
     
-        // Scale the columns to achieve the desired condition number
+        // Scale columns to worsen conditioning
         let singular_values = DVector::from_fn(n, |i, _| {
             if i == 0 {
                 condition_number
@@ -171,13 +150,11 @@ mod tests
     
     fn generate_least_squares_problem(m:usize , n:usize, ill_conditioning:bool)  -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
-        let start = Instant::now();
         let mut rng = rand::thread_rng();
         let epsilon = 0.0001;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
         let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
-        println!("Time for Generation :{:.2?}", start.elapsed());
         let data = {
             if ill_conditioning{
                 generate_tall_ill_conditioned_matrix(m, n, 1e5)
@@ -187,7 +164,6 @@ mod tests
                 sketching_operator(DistributionType::Gaussian, m, n).unwrap()
             }
         };
-        println!("Time for Generation :{:.2?}", start.elapsed());
         let mut y = &data*&hypothesis;
         let noise_vector = DMatrix::from_fn(m, 1, |_, _| normal.sample(&mut rng));
         for i in 0..m {
@@ -198,14 +174,14 @@ mod tests
     
     #[test]
     fn test_blendenpik_overdetermined(){
-        let n = rand::thread_rng().gen_range(100..150);
-        let m = rand::thread_rng().gen_range(500..5000);
+        let n = rand::thread_rng().gen_range(1000..1500);
+        let m = rand::thread_rng().gen_range(5000..50000);
         let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
         
         // Blendenpik Test
         let start1 = Instant::now();
         // compute using sketched qr
-        let x = blendenpik_overdetermined(&data, &y, 0.0001, 10000, 1.5).unwrap();
+        let x = blendenpik_overdetermined(&data, &y, 0.0001, 1000, 1.5).unwrap();
         let duration1 = start1.elapsed();
         // compute using plain qr
         let start2 = Instant::now();
@@ -216,7 +192,7 @@ mod tests
         
 
         let start3 = Instant::now();
-        let iterative_solution = cg::cgls(&data, &y, 0.0001, 10000, Some(DMatrix::zeros(n, 1)));
+        let iterative_solution = cg::cgls(&data, &y, 0.0001, 1000, Some(DMatrix::zeros(n, 1)));
         let duration3 = start3.elapsed();
         
         
@@ -225,6 +201,7 @@ mod tests
         let residual_actual = &data*actual_solution - &y;
         let residual_iterative = &data*iterative_solution - &y;
         
+        println!("Least Squares Blendenpik test");
         println!("Hypothesis residual: {}, Actual Residual: {}", (residual_hypothesis).norm(), (residual_actual).norm());
         println!("Sketched residual: {}, Iterative Residual: {}", (residual_sketch).norm(), (residual_iterative).norm());
         println!("Relative Hypothesis error = {}, Relative Actual Error= {}", residual_hypothesis.norm()/y.norm(), (residual_actual).norm()/y.norm());
@@ -234,9 +211,9 @@ mod tests
     #[test]
     fn test_saddle_point(){
         let mut rng = rand::thread_rng();
-        let n = rand::thread_rng().gen_range(100..150);
-        let m = rand::thread_rng().gen_range(500..5000);
-        let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
+        let n = rand::thread_rng().gen_range(1000..1500);
+        let m = rand::thread_rng().gen_range(5000..50000);
+        let (data, _, y) = generate_least_squares_problem(m, n, true);
         let uniform = Uniform::new(-10.0, 10.0);
         let c = DMatrix::from_fn(n, 1, |_, _| uniform.sample(&mut rng));
         let mu = uniform.sample(&mut rng);
@@ -245,8 +222,7 @@ mod tests
         
         let start1 = Instant::now();
         // compute using sketched algorithm
-        println!("data shape ({}, {}), y shape ({}, {}), c shape ({}, {})", data.nrows(), data.ncols(), y.nrows(), y.ncols(), c.nrows(), c.ncols());
-        let (sketched_solution, sketched_dual_solution) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 10000, 1.5).unwrap();
+        let (sketched_solution, _sketched_dual_solution) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 1000, 1.5).unwrap();
         let duration1 = start1.elapsed();
         
         // compute using SVD
@@ -266,35 +242,32 @@ mod tests
         let duration2 = start2.elapsed();
         
         // compute using cgls
-        let start3 = Instant::now();
+        let start3: Instant = Instant::now();
         let ata_mu = &data.transpose()*&data + DMatrix::identity(n, n);
         let atb_c = &data.transpose()*&y + &c;
-        let iterative_solution = cg::cgls(&ata_mu, &atb_c, 0.0001, 10000, Some(DMatrix::zeros(n, 1)));
+        let iterative_solution = cg::cgls(&ata_mu, &atb_c, 0.0001, 1000, Some(DMatrix::zeros(n, 1)));
         let duration3 = start3.elapsed();
-        
         
         let norm_sketch = (&data*&sketched_solution).norm().powf(2.0) + mu*sketched_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&sketched_solution));
         let norm_iterative = (&data*&iterative_solution).norm().powf(2.0) + mu*iterative_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&iterative_solution));
         let norm_actual = (&data*&actual_solution).norm().powf(2.0) + mu*actual_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&actual_solution));
         
+        println!("Least Squares Saddle Point test");
         println!("Actual Residual: {}, Sketched residual: {}, Iterative Residual: {}", norm_actual, norm_sketch, norm_iterative);
-        println!("Times: (sketched, actual, iterative): {:.2?} {:.2?} {:.2?}", duration1, duration2, duration3);
+        println!("Times: (Actual, Sketched, Iterative): {:.2?} {:.2?} {:.2?}", duration2, duration1, duration3);
     }
     
     
     #[test]    
     fn test_lsrn_overdetermined(){
-        let start = Instant::now();
-        let n = rand::thread_rng().gen_range(100..150);
-        let m = rand::thread_rng().gen_range(500..5000);
+        let n = rand::thread_rng().gen_range(1000..1500);
+        let m = rand::thread_rng().gen_range(5000..50000);
         let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
-        println!("Time to generate data :{:.2?}", start.elapsed());
         // LSRN
         let start1 = Instant::now();
         // compute using lsrn
-        let x = lsrn_overdetermined(&data, &y, 0.0001, 10000, 3.0).unwrap();
+        let x = lsrn_overdetermined(&data, &y, 0.0001, 1000, 3.0).unwrap();
         let duration1 = start1.elapsed();
-        println!("Time for LSRN :{:.2?}", start.elapsed());
         
         // compute using SVD
         let start2 = Instant::now();
@@ -305,19 +278,18 @@ mod tests
         let b_transformed = u.transpose()*&y;
         let actual_solution = v*solve_diagonal_system(&sigma, &b_transformed);
         let duration2 = start2.elapsed();
-        println!("Time for SVD :{:.2?}", start.elapsed());
 
         // compute using iterative solver
         let start3 = Instant::now();
-        let iterative_solution = cg::cgls(&data, &y, 0.0001, 10000, Some(DMatrix::zeros(n, 1)));
+        let iterative_solution = cg::cgls(&data, &y, 0.0001, 1000, Some(DMatrix::zeros(n, 1)));
         let duration3 = start3.elapsed();
-        println!("Time for CGLS :{:.2?}", start.elapsed());
         
         let residual_hypothesis = &data*&hypothesis - &y;
         let residual_sketch = &data*x - &y;
         let residual_actual = &data*actual_solution - &y;
         let residual_iterative = &data*iterative_solution - &y;
         
+        println!("Least Squares LSRN test");
         println!("Hypothesis residual: {}, Actual Residual: {}", (residual_hypothesis).norm(), (residual_actual).norm());
         println!("Sketched residual: {}, Iterative Residual: {}", (residual_sketch).norm(), (residual_iterative).norm());
         println!("Relative Hypothesis error = {}, Relative Actual Error= {}", residual_hypothesis.norm()/y.norm(), (residual_actual).norm()/y.norm());
