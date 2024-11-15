@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use nalgebra::{DMatrix, DVector, dmatrix, dvector};
 use rand_core::{SeedableRng, RngCore};
 use rand::Rng;
@@ -15,6 +16,8 @@ mod cg;
 mod solvers;
 mod sketch_and_precondition;
 mod sketch_and_solve;
+mod lora_drivers;
+mod lora_helpers;
 
 
 
@@ -27,16 +30,73 @@ pub enum DistributionType {
 
 fn main() {
 
-
     let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-    let threefry_normal: DistIter<StandardNormal, &mut ThreeFry2x64Rng, f64> = StandardNormal.sample_iter(&mut rng_threefry);
-    let data: Vec<f64> = threefry_normal.take(2 * 2).collect();
-
-    println!("Threefry Data: {:?}", data);
-
-    // test_solvers();
+    
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+fn test_drivers(){
+    let a = dmatrix![1.0, 2.0, 3.0;
+                 4.0, 5.0, 6.0;
+                 7.0, 8.0, 9.0];
+
+    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    let dims = 1000;
+    let a =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
+    // println!("A: \n{}", a);
+
+    let k = dims;
+    let epsilon= 0.01;
+    let s = 5;
+
+    let tick = Instant::now();
+    let (u, s, v) = lora_drivers::rand_SVD(&a, k, epsilon, s);
+    let tock = tick.elapsed();
+
+    println!("Time taken by RandSVD: {:?}", tock);
+    // println!("U: \n{}", u);
+    // println!("S: \n{}", s);
+    // println!("V: \n{}", v);
+
+    // normal nalgebra svd
+
+    let tick = Instant::now();
+    let svd = a.svd(true, true);
+    let tock = tick.elapsed();
+    println!("Time taken by Deterministic SVD: {:?}", tock);
+
+
+    let deterministic_u = svd.u.unwrap();
+    let deterministic_s = DMatrix::from_diagonal(&svd.singular_values);
+    let deterministic_v = svd.v_t.unwrap().transpose();
+    // println!("Deterministic U: \n{}", deterministic_u);
+    // println!("Deterministic S: \n{}", deterministic_s);
+    // println!("Deterministic V: \n{}", deterministic_v);
+
+    let diff_u = (&u - &deterministic_u).norm();
+    let diff_s = (&s - &deterministic_s).norm();
+    let diff_v = (&v - &deterministic_v).norm();
+    println!("Difference between U: {}", diff_u);
+    println!("Difference between S: {}", diff_s);
+    println!("Difference between V: {}", diff_v);
+
+
+
+
+
+}
 
 
 
