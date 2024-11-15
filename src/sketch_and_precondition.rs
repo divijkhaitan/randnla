@@ -239,7 +239,7 @@ mod tests
         let mut rng = rand::thread_rng();
         let n = rand::thread_rng().gen_range(100..150);
         let m = rand::thread_rng().gen_range(500..5000);
-        let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
+        let (data, _, y) = generate_least_squares_problem(m, n, true);
         let uniform = Uniform::new(-10.0, 10.0);
         let c = DMatrix::from_fn(n, 1, |_, _| uniform.sample(&mut rng));
         let mu = uniform.sample(&mut rng);
@@ -249,7 +249,7 @@ mod tests
         let start1 = Instant::now();
         // compute using sketched algorithm
         println!("data shape ({}, {}), y shape ({}, {}), c shape ({}, {})", data.nrows(), data.ncols(), y.nrows(), y.ncols(), c.nrows(), c.ncols());
-        let (sketched_solution, sketched_dual_solution) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 10000, 1.5).unwrap();
+        let (sketched_solution, _) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 10000, 1.5).unwrap();
         let duration1 = start1.elapsed();
         
         // compute using SVD

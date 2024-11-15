@@ -3,10 +3,6 @@ use crate::sketch::{sketching_operator, DistributionType};
 use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
 
-use rand::distributions::DistIter;
-use rand_123::rng::ThreeFry2x64Rng;
-use rand_core::SeedableRng;
-
 pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
     let s: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = sketching_operator(DistributionType::Gaussian, rows/2, rows).unwrap();
@@ -44,6 +40,8 @@ mod tests
     use nalgebra::DMatrix;
     use super::{sketched_least_squares_qr, sketched_least_squares_svd};
     use crate::{sketch::{sketching_operator, DistributionType}, solvers::{solve_upper_triangular_system, solve_diagonal_system}};
+    use rand_123::rng::ThreeFry2x64Rng;
+    use rand_core::{SeedableRng, RngCore};
     #[test]
     fn test_least_squares_qr(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
@@ -53,11 +51,11 @@ mod tests
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
-        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
+        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng_threefry));
         let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
-            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
+            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng_threefry));
             for j in 0..n {
                 data[(i, j)] += noise_vector[(j, 0)];
             }
@@ -100,11 +98,11 @@ mod tests
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);
-        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
+        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng_threefry));
         let mut data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
         let y = &data*&hypothesis;
         for i in 0..m {
-            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng));
+            let noise_vector = DMatrix::from_fn(n, 1, |_, _| normal.sample(&mut rng_threefry));
             for j in 0..n {
                 data[(i, j)] += noise_vector[(j, 0)];
             }

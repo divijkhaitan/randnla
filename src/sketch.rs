@@ -16,9 +16,9 @@ pub enum MatrixAttribute {
 
 use rand::distributions::DistIter;
 use rand_123::rng::ThreeFry2x64Rng;
-use rand_core::SeedableRng;
+use rand_core::{SeedableRng, RngCore};
 
-pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> DMatrix<f64> {
+pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result<DMatrix<f64>, Box<dyn Error>> {
     // Ensuring valid matrix dimensions, an orthonormal matrix cannot have 
     let (m, n) = match attr {
         MatrixAttribute::Row => {
@@ -97,7 +97,8 @@ mod tests {
     use approx::assert_relative_eq;
     use super::{MatrixAttribute, haar_sample, sketching_operator, DistributionType};
     use rand::Rng;
-    
+    use rand_123::rng::ThreeFry2x64Rng;
+    use rand_core::{SeedableRng, RngCore};
     #[test]
     fn test_row_attribute() {
         let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
@@ -125,7 +126,7 @@ mod tests {
     
         // Columns have magnitude at most 1
         for j in 0..n {
-            let sum = sum_of_squares_column(&result, j);
+            let sum = result.column(j).norm();
             assert!(sum >= 0.0 && sum <= 1.0);
         }
         
@@ -163,7 +164,7 @@ mod tests {
         
         // Rows have magnitude at most 1
         for i in 0..m {
-            let sum = sum_of_squares_row(&result, i);
+            let sum = result.row(i).norm();
             assert!(sum >= 0.0 && sum <= 1.0);
         }
         

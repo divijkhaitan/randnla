@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use nalgebra::{DMatrix, DVector, dmatrix, dvector};
 use rand_core::{SeedableRng, RngCore};
 use rand::Rng;
