@@ -1,6 +1,6 @@
 use nalgebra::DMatrix;
 use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-use crate::errors::DimensionError;
+use crate::errors::RandNLAError;
 use std::error::Error;
 pub enum DistributionType {
     Gaussian,
@@ -22,7 +22,7 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result
     let (m, n) = match attr {
         MatrixAttribute::Row => {
             if rows > columns {
-                return Err(Box::new(DimensionError::InvalidDimensions(format!(
+                return Err(Box::new(RandNLAError::InvalidDimensions(format!(
                     "Cannot have more rows ({}) than columns ({}) for row-orthonormal matrix",
                     rows, columns
                 ))));
@@ -31,7 +31,7 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result
         }
         MatrixAttribute::Column => {
             if columns > rows {
-                return Err(Box::new(DimensionError::InvalidDimensions(format!(
+                return Err(Box::new(RandNLAError::InvalidDimensions(format!(
                     "Cannot have more columns ({}) than rows ({}) for column-orthonormal matrix",
                     columns, rows
                 ))));
@@ -66,7 +66,7 @@ pub fn sketching_operator(
     cols: usize
 ) -> Result<DMatrix<f64>, Box<dyn Error>> {
     if rows == 0 || cols == 0 {
-        return Err(Box::new(DimensionError::InvalidDimensions(
+        return Err(Box::new(RandNLAError::InvalidDimensions(
             "Rows and columns must be greater than 0".to_string(),
         )));
     }

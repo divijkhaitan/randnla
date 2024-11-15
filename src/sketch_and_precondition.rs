@@ -1,14 +1,14 @@
 use nalgebra::DMatrix;
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::cg;
-use crate::errors::DimensionError;
+use crate::errors::RandNLAError;
 use std::error::Error;
 
 pub fn blendenpik_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, l:usize, sampling_factor:f64) -> Result<DMatrix<f64>, Box<dyn Error>> {
     let m = a.nrows();
     let n = a.ncols();
     if m < n{
-        return Err(Box::new(DimensionError::NotOverdetermined(
+        return Err(Box::new(RandNLAError::NotOverdetermined(
             format!("Need more columns than rows, found {} rows and {} columns", a.nrows(), a.ncols())
         )));
     }
@@ -28,7 +28,7 @@ fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize,
     let m = a.nrows();
     let n = a.ncols();
     if m < n{
-        return Err(Box::new(DimensionError::NotOverdetermined(
+        return Err(Box::new(RandNLAError::NotOverdetermined(
             format!("Need more columns than rows, found {} rows and {} columns", a.nrows(), a.ncols())
         )));
     }
@@ -51,7 +51,7 @@ fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize,
 fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMatrix<f64>, mu: f64, epsilon: f64, l: usize, sampling_factor: f64) -> Result<(DMatrix<f64>, DMatrix<f64>), Box<dyn Error>> {
     let (m, n) = a.shape();
     if m < n{
-        return Err(Box::new(DimensionError::NotOverdetermined(
+        return Err(Box::new(RandNLAError::NotOverdetermined(
             format!("Need more columns than rows, found {} rows and {} columns", a.nrows(), a.ncols())
         )));
     }

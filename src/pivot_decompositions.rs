@@ -1,4 +1,73 @@
 use nalgebra::{DMatrix, DVector};
+use std::error::Error;
+use crate::errors::RandNLAError;
+
+pub fn lupp(matrix: &DMatrix<f64>) -> Result<(DMatrix<f64>, DMatrix<f64>, Vec<usize>), Box <dyn Error>> {
+    let n = matrix.nrows();
+    if n != matrix.ncols() {
+        return Err(Box::new(RandNLAError::NotSquare(
+            format!("Matrix must be square, found matrix with {} rows and {} columns", matrix.nrows(), matrix.ncols())
+        )));
+    }
+
+    let mut lu = matrix.clone();
+    let mut p: Vec<usize> = (0..n).collect();
+
+    for k in 0..n-1 {
+        let mut pivot_row = k;
+        let mut pivot_val = lu[(k, k)].abs();
+
+        for i in k+1..n {
+            let val = lu[(i, k)].abs();
+            if val > pivot_val {
+                pivot_val = val;
+                pivot_row = i;
+            }
+        }
+
+        if pivot_val == 0.0 {
+            return Err(Box::new(RandNLAError::SingularMatrix(
+                format!("Matrix must be nonsingular for an LU decomposition")
+            )));
+        }
+
+        if pivot_row != k {
+            for j in 0..n {
+                let temp = lu[(k, j)];
+                lu[(k, j)] = lu[(pivot_row, j)];
+                lu[(pivot_row, j)] = temp;
+            }
+            let temp = p[k];
+            p[k] = p[pivot_row];
+            p[pivot_row] = temp;
+        }
+
+        for i in k+1..n {
+            let multiplier = lu[(i, k)] / lu[(k, k)];
+            lu[(i, k)] = multiplier;  // Store multiplier in L part
+            
+            for j in k+1..n {
+                lu[(i, j)] -= multiplier * lu[(k, j)];
+            }
+        }
+    }
+
+    // Separate L and U matrices
+    let mut l = DMatrix::identity(n, n);
+    let mut u = DMatrix::zeros(n, n);
+
+    for i in 0..n {
+        for j in 0..n {
+            if i > j {
+                l[(i, j)] = lu[(i, j)];
+            } else {
+                u[(i, j)] = lu[(i, j)];
+            }
+        }
+    }
+
+    Ok((l, u, p))
+}
 
 pub fn qrcp(
     a: &DMatrix<f64>
@@ -153,7 +222,7 @@ mod tests
 {
     use approx::assert_relative_eq;
     use nalgebra::DMatrix;
-    use super::{qrcp, economic_qrcp};
+    use super::{qrcp, economic_qrcp, lupp};
     use crate::sketch::{sketching_operator, DistributionType};
     use rand::Rng;
     fn permutation_vector_to_transpose_matrix(perm: &[usize]) -> DMatrix<f64> {
@@ -166,6 +235,7 @@ mod tests
     
         perm_matrix
     }
+
     fn check_approx_equal(a: &DMatrix<f64>, b: &DMatrix<f64>, tolerance: f64) -> bool {
         if a.shape() != b.shape() {
             return false;
@@ -203,28 +273,50 @@ mod tests
         
         let (q_cp, r_cp, p) = qrcp(&data);
         let p_cp = permutation_vector_to_transpose_matrix(&p);
-        let (q, r) = data.qr().unpack();
+        let (q, r) = data.clone().qr().unpack();
         
         let reconstruct = &q*&r;
         let reconstructed = &q_cp*&r_cp*&p_cp;
         
         // Normal columns
-        let cols = q.ncols();
+        let cols = q_cp.ncols();
         for j in 0..cols {
-            assert_relative_eq!(q.column(j).norm(), 1.0, epsilon = 1e-6);
+            assert_relative_eq!(q_cp.column(j).norm(), 1.0, epsilon = 1e-6);
         }
 
         // Orthogonal columns
         for i in 0..cols {
             for j in (i+1)..cols {
-                assert_relative_eq!(q.column(i).dot(&q.column(j)), 0.0, epsilon = 1e-6);
+                assert_relative_eq!(q_cp.column(i).dot(&q_cp.column(j)), 0.0, epsilon = 1e-6);
             }
         }
         
         assert!(check_upper_triangular(&r_cp, 1e-4));
-        assert!(check_approx_equal(&reconstruct, &reconstructed, 1e-4));
+        assert!(check_approx_equal(&reconstructed, &reconstruct, 1e-4));
+        assert!(check_approx_equal(&reconstructed, &data, 1e-4));
     }
     
+    #[test]
+    fn test_lupp(){
+        let n = 500;
+        let m = 500;
+        let data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
+        
+        let (l_rp, u_rp, p) = lupp(&data).unwrap();
+        let p_rp = permutation_vector_to_transpose_matrix(&p).transpose();
+        
+        let (p, l, u) = data.clone().lu().unpack();
+        let reconstruct = p_rp*&l_rp*&u_rp;
+        let mut reconstructed = &l*&u;
+        p.inv_permute_rows(&mut reconstructed);
+        
+        assert!(check_upper_triangular(&u_rp, 1e-4));
+        assert!(check_upper_triangular(&l_rp.transpose(), 1e-4));
+        assert!(check_approx_equal(&data, &reconstruct, 1e-4));
+        assert!(check_approx_equal(&reconstructed, &reconstruct, 1e-4));
+    }
+    
+
     #[test]
     fn test_qrcp_economical(){
         let n = rand::thread_rng().gen_range(10..30);
