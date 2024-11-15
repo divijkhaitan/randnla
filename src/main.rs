@@ -29,8 +29,7 @@ pub enum DistributionType {
 
 
 fn main() {
-
-    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+    
     
 }
 
@@ -44,59 +43,6 @@ fn main() {
 
 
 
-
-
-fn test_drivers(){
-    let a = dmatrix![1.0, 2.0, 3.0;
-                 4.0, 5.0, 6.0;
-                 7.0, 8.0, 9.0];
-
-    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-    let normal = Normal::new(0.0, 1.0).unwrap();
-    let dims = 1000;
-    let a =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
-    // println!("A: \n{}", a);
-
-    let k = dims;
-    let epsilon= 0.01;
-    let s = 5;
-
-    let tick = Instant::now();
-    let (u, s, v) = lora_drivers::rand_SVD(&a, k, epsilon, s);
-    let tock = tick.elapsed();
-
-    println!("Time taken by RandSVD: {:?}", tock);
-    // println!("U: \n{}", u);
-    // println!("S: \n{}", s);
-    // println!("V: \n{}", v);
-
-    // normal nalgebra svd
-
-    let tick = Instant::now();
-    let svd = a.svd(true, true);
-    let tock = tick.elapsed();
-    println!("Time taken by Deterministic SVD: {:?}", tock);
-
-
-    let deterministic_u = svd.u.unwrap();
-    let deterministic_s = DMatrix::from_diagonal(&svd.singular_values);
-    let deterministic_v = svd.v_t.unwrap().transpose();
-    // println!("Deterministic U: \n{}", deterministic_u);
-    // println!("Deterministic S: \n{}", deterministic_s);
-    // println!("Deterministic V: \n{}", deterministic_v);
-
-    let diff_u = (&u - &deterministic_u).norm();
-    let diff_s = (&s - &deterministic_s).norm();
-    let diff_v = (&v - &deterministic_v).norm();
-    println!("Difference between U: {}", diff_u);
-    println!("Difference between S: {}", diff_s);
-    println!("Difference between V: {}", diff_v);
-
-
-
-
-
-}
 
 
 
