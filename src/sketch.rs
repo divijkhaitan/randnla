@@ -132,7 +132,7 @@ mod tests {
         // Case 2: m > n (should panic)
         let n = rng_threefry.gen_range(50..100);
         let m = rng_threefry.gen_range(n..500);
-        let result = std::panic::catch_unwind(|| haar_sample(m, n, MatrixAttribute::Row));
+        let result = haar_sample(m, n, MatrixAttribute::Row);
         assert!(result.is_err());
     }
 
@@ -170,7 +170,7 @@ mod tests {
         // Case 4: m < n (should panic)
         let m = rng_threefry.gen_range(50..100);
         let n = rng_threefry.gen_range(m..500);
-        let result = std::panic::catch_unwind(|| haar_sample(m, n, MatrixAttribute::Column));
+        let result = haar_sample(m, n, MatrixAttribute::Column);
         assert!(result.is_err());
     }
 
