@@ -7,3 +7,5 @@ pub mod solvers;
 pub mod cg;
 pub mod errors;
 pub mod pivot_decompositions;
+pub mod id;
+pub mod cqrrpt;

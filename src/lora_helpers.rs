@@ -1,4 +1,4 @@
-use nalgebra::{DMatrix};
+use nalgebra::DMatrix;
 use rand::Rng;
 use crate::sketch;
 

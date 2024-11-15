@@ -1,87 +1,84 @@
 #![allow(dead_code)]
-#![allow(unused_imports)]
-use nalgebra::{DMatrix, DVector, dmatrix, dvector};
-use rand_core::{SeedableRng, RngCore};
-use rand::Rng;
-use std::time::Instant;
-
-use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-
-use rand::distributions::DistIter;
-
-use rand_123::rng::ThreeFry2x64Rng;
-
+use nalgebra::DMatrix;
+use rand::Rng;  
 mod errors;
 mod sketch;
 mod cg;
 mod solvers;
 mod sketch_and_precondition;
 mod sketch_and_solve;
+mod pivot_decompositions;
+mod cqrrpt;
 
+use crate::cqrrpt::sap_chol_qrcp;
+use crate::pivot_decompositions::qrcp;
+use crate::sketch::{sketching_operator, DistributionType};
+use std::time::Instant;
+    
+fn permutation_vector_to_transpose_matrix(perm: &[usize]) -> DMatrix<f64> {
+    let n = perm.len();
+    let mut perm_matrix = DMatrix::<f64>::zeros(n, n); // Initialize an n x n matrix with zeros
 
+    for (i, &p) in perm.iter().enumerate() {
+        perm_matrix[(i, p)] = 1.0;
+    }
 
-pub enum DistributionType {
-    Gaussian,
-    Uniform,
-    Rademacher,
+    perm_matrix
+}
+fn check_approx_equal(a: &DMatrix<f64>, b: &DMatrix<f64>, tolerance: f64) -> bool {
+    if a.shape() != b.shape() {
+        return false;
+    }
+    
+    for i in 0..a.nrows() {
+        for j in 0..a.ncols() {
+            if (a[(i, j)] - b[(i, j)]).abs() > tolerance {
+                println!("{}, {}, {}, {}", i, j, a[(i, j)], b[(i, j)]);
+                return false;
+            }
+        }
+    }
+    
+    true
 }
 
-
-fn main() {
-
-
-    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-    let threefry_normal: DistIter<StandardNormal, &mut ThreeFry2x64Rng, f64> = StandardNormal.sample_iter(&mut rng_threefry);
-    let data: Vec<f64> = threefry_normal.take(2 * 2).collect();
-
-    println!("Threefry Data: {:?}", data);
-
-    // test_solvers();
+fn check_upper_triangular(a: &DMatrix<f64>, tolerance: f64) -> bool {
+    
+    for i in 0..a.nrows() {
+        for j in 0..i.min(a.ncols()) {
+            if (a[(i, j)]).abs() > tolerance {
+                // println!("({}, {}), {}", i, j, a[(i, j)]);
+                return false;
+            }
+        }
+    }
+    true
 }
-
-
-
-
-// Testing Solvers ========================================================================
-fn test_solvers() {
-    let n = 3; 
-    let (a, b) = generate_test_problem(n);
-    let a = dmatrix![4.0, 1.0; 1.0, 3.0];
-    let b = dvector![1.0,2.0];
+fn main(){
+    let n = 10;
+    let m = 100;
+    let d = rand::thread_rng().gen_range(n..m);
     
-    println!("Testing with n = {}", n);
-    println!("Matrix A: \n{}", a);
-    println!("Vector b: \n{}", b);
-    test_cg_method(a, b);
-} 
-fn generate_test_problem(n: usize) -> (DMatrix<f64>, DVector<f64>) {
-    let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+    let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
     
+    let start1 = Instant::now();
+    let (q, r, j) = sap_chol_qrcp(&data, d);
+    let duration1 = start1.elapsed();
+
+    let start2 = Instant::now();
+    let (q_cp, r_cp, p) = qrcp(&data);
+    let p_cp = permutation_vector_to_transpose_matrix(&p);
+    let duration2 = start2.elapsed();
     
-    let p: DMatrix<f64> = DMatrix::from_fn(n, n, |_, _| rng_threefry.gen_range(0.0..1.0));
-    let a = &p.transpose() * &p;
-    let b = DVector::from_element(n, 1.0);
-    (a, b)
+
+    let reconstruct = &q*&r*permutation_vector_to_transpose_matrix(&j);
+    let reconstructed = &q_cp*&r_cp*&p_cp;
+    let qtq = &q.transpose()*&q;
+    println!("Deterministic Time {:2?}", duration2);
+    println!("Sketched Time {:2?}", duration1);
+    println!("Reconstruction Error {}", (&reconstruct - &reconstructed).norm());
+    
+    assert!(check_upper_triangular(&r, 1e-4));
+    assert!(check_approx_equal(&qtq,  &DMatrix::identity(q.ncols(), q.ncols()), 1e-4));
+    assert!(check_approx_equal(&reconstruct, &reconstructed, 1e-4));
 }
-
-fn test_cg_method(a: DMatrix<f64>, b: DVector<f64>) {
-    println!("Starting conjugate gradient method");
-    let start = Instant::now();
-    let x = cg::conjugate_grad(&a, &b, None);
-    println!("Solution x : {}\n", x);
-    let duration = start.elapsed();
-    println!("Conjugate gradient method took: {:?}", duration);
-    
-    let residual = cg::verify_solution(&a, &b, &x);
-    println!("Residual: {}", residual);
-    
-    println!("Starting built-in solver");
-    let start = Instant::now();
-    let x_builtin = a.lu().solve(&b).unwrap();
-    let duration = start.elapsed();
-    println!("Built-in solver took: {:?}", duration);
-    
-    let diff = (&x - &x_builtin).norm();
-    println!("Difference between solutions: {}", diff);
-}
-// Testing Solvers ========================================================================
