@@ -157,7 +157,7 @@ mod tests
         let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
         let data = {
             if ill_conditioning{
-                generate_tall_ill_conditioned_matrix(m, n, 1e5)
+                generate_tall_ill_conditioned_matrix(m, n, 1e6)
             }
             else
             {
@@ -174,26 +174,25 @@ mod tests
     
     #[test]
     fn test_blendenpik_overdetermined(){
-        let n = rand::thread_rng().gen_range(1000..1500);
-        let m = rand::thread_rng().gen_range(5000..50000);
+        let n = rand::thread_rng().gen_range(10..50);
+        let m = rand::thread_rng().gen_range(100..500);
         let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
         
         // Blendenpik Test
-        let start1 = Instant::now();
+        let start_randomised = Instant::now();
         // compute using sketched qr
         let x = blendenpik_overdetermined(&data, &y, 0.0001, 1000, 1.5).unwrap();
-        let duration1 = start1.elapsed();
+        let duration_randomised = start_randomised.elapsed();
         // compute using plain qr
-        let start2 = Instant::now();
+        let start_deterministic = Instant::now();
         let (q, r) = data.clone().qr().unpack();
         let b_transformed = q.transpose()*&y;
         let actual_solution = solve_upper_triangular_system(&r, &b_transformed);
-        let duration2 = start2.elapsed();
+        let duration_deterministic = start_deterministic.elapsed();
         
-
-        let start3 = Instant::now();
+        let start_iterative = Instant::now();
         let iterative_solution = cg::cgls(&data, &y, 0.0001, 1000, Some(DMatrix::zeros(n, 1)));
-        let duration3 = start3.elapsed();
+        let duration_iterative = start_iterative.elapsed();
         
         
         let residual_hypothesis = &data*&hypothesis - &y;
@@ -202,11 +201,11 @@ mod tests
         let residual_iterative = &data*iterative_solution - &y;
         
         println!("Least Squares Blendenpik test");
-        println!("Hypothesis residual: {}, Actual Residual: {}", (residual_hypothesis).norm(), (residual_actual).norm());
-        println!("Sketched residual: {}, Iterative Residual: {}", (residual_sketch).norm(), (residual_iterative).norm());
+        // println!("Hypothesis residual: {}, Actual Residual: {}", (residual_hypothesis).norm(), (residual_actual).norm());
+        // println!("Sketched residual: {}, Iterative Residual: {}", (residual_sketch).norm(), (residual_iterative).norm());
         println!("Relative Hypothesis error = {}, Relative Actual Error= {}", residual_hypothesis.norm()/y.norm(), (residual_actual).norm()/y.norm());
         println!("Relative Sketched error = {}, Relative Iterative Error= {}", residual_sketch.norm()/y.norm(), (residual_iterative).norm()/y.norm());
-        println!("Times: (sketched, actual, iterative): {:.2?} {:.2?} {:.2?}", duration1, duration2, duration3);
+        println!("Times: (sketched, actual, iterative): {:.2?} {:.2?} {:.2?}", duration_randomised, duration_deterministic, duration_iterative);
     }
     #[test]
     fn test_saddle_point(){
@@ -220,13 +219,13 @@ mod tests
         // Blendenpik Test
         
         
-        let start1 = Instant::now();
+        let start_randomised = Instant::now();
         // compute using sketched algorithm
         let (sketched_solution, _sketched_dual_solution) = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 1000, 1.5).unwrap();
-        let duration1 = start1.elapsed();
+        let duration_randomised = start_randomised.elapsed();
         
         // compute using SVD
-        let start2 = Instant::now();
+        let start_deterministic = Instant::now();
         // let ata_mu = &data.transpose()*&data + DMatrix::identity(n, n);
         let atb_c = &data.transpose()*&y + &c;
         let svd_obj = data.clone().svd(false, true);
@@ -239,14 +238,14 @@ mod tests
         let vt_atb_c = &vt * &atb_c;
         let scaled_vt_atb_c = vt_atb_c.component_mul(&pseudoinverse);
         let actual_solution = &vt.transpose() * &scaled_vt_atb_c;
-        let duration2 = start2.elapsed();
+        let duration_deterministic = start_deterministic.elapsed();
         
         // compute using cgls
-        let start3: Instant = Instant::now();
+        let start_iterative: Instant = Instant::now();
         let ata_mu = &data.transpose()*&data + DMatrix::identity(n, n);
         let atb_c = &data.transpose()*&y + &c;
         let iterative_solution = cg::cgls(&ata_mu, &atb_c, 0.0001, 1000, Some(DMatrix::zeros(n, 1)));
-        let duration3 = start3.elapsed();
+        let duration_iterative = start_iterative.elapsed();
         
         let norm_sketch = (&data*&sketched_solution).norm().powf(2.0) + mu*sketched_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&sketched_solution));
         let norm_iterative = (&data*&iterative_solution).norm().powf(2.0) + mu*iterative_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&iterative_solution));
@@ -254,7 +253,7 @@ mod tests
         
         println!("Least Squares Saddle Point test");
         println!("Actual Residual: {}, Sketched residual: {}, Iterative Residual: {}", norm_actual, norm_sketch, norm_iterative);
-        println!("Times: (Actual, Sketched, Iterative): {:.2?} {:.2?} {:.2?}", duration2, duration1, duration3);
+        println!("Times: (Actual, Sketched, Iterative): {:.2?} {:.2?} {:.2?}", duration_deterministic, duration_randomised, duration_iterative);
     }
     
     
@@ -264,25 +263,25 @@ mod tests
         let m = rand::thread_rng().gen_range(100..500);
         let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
         // LSRN
-        let start1 = Instant::now();
+        let start_randomised = Instant::now();
         // compute using lsrn
         let x = lsrn_overdetermined(&data, &y, 0.0001, 1000, 3.0).unwrap();
-        let duration1 = start1.elapsed();
+        let duration_randomised = start_randomised.elapsed();
         
         // compute using SVD
-        let start2 = Instant::now();
+        let start_deterministic = Instant::now();
         let svd_obj = data.clone().svd(true, true);
         let u = svd_obj.u.unwrap();
         let sigma = DMatrix::from_diagonal(&svd_obj.singular_values);
         let v = svd_obj.v_t.unwrap().transpose();
         let b_transformed = u.transpose()*&y;
         let actual_solution = v*solve_diagonal_system(&sigma, &b_transformed);
-        let duration2 = start2.elapsed();
+        let duration_deterministic = start_deterministic.elapsed();
 
         // compute using iterative solver
-        let start3 = Instant::now();
+        let start_iterative = Instant::now();
         let iterative_solution = cg::cgls(&data, &y, 0.0001, 1000, Some(DMatrix::zeros(n, 1)));
-        let duration3 = start3.elapsed();
+        let duration_iterative = start_iterative.elapsed();
         
         let residual_hypothesis = &data*&hypothesis - &y;
         let residual_sketch = &data*x - &y;
@@ -294,7 +293,7 @@ mod tests
         println!("Sketched residual: {}, Iterative Residual: {}", (residual_sketch).norm(), (residual_iterative).norm());
         println!("Relative Hypothesis error = {}, Relative Actual Error= {}", residual_hypothesis.norm()/y.norm(), (residual_actual).norm()/y.norm());
         println!("Relative Sketched error = {}, Relative Iterative Error= {}", residual_sketch.norm()/y.norm(), (residual_iterative).norm()/y.norm());
-        println!("Times: (sketched, actual, iterative): {:.2?} {:.2?} {:.2?}", duration1, duration2, duration3);
+        println!("Times: (sketched, actual, iterative): {:.2?} {:.2?} {:.2?}", duration_randomised, duration_deterministic, duration_iterative);
     }
     
 }

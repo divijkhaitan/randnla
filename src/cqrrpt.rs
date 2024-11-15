@@ -40,6 +40,7 @@ pub fn sap_chol_qrcp(a: &DMatrix<f64>, d: usize) -> (DMatrix<f64>, DMatrix<f64>,
 #[cfg(test)]
 mod tests
 {
+    use approx::assert_relative_eq;
     use nalgebra::DMatrix;
     use crate::cqrrpt::sap_chol_qrcp;
     use crate::pivot_decompositions::qrcp;
@@ -106,13 +107,25 @@ mod tests
 
         let reconstruct = &q*&r*permutation_vector_to_transpose_matrix(&j);
         let reconstructed = &q_cp*&r_cp*&p_cp;
-        let qtq = &q.transpose()*&q;
+        println!("Deterministic Time {:2?}", duration2);
+        println!("Sketched Time {:2?}", duration1);        
+        
+        // Normal columns
+        let cols = q.ncols();
+        for j in 0..cols {
+            assert_relative_eq!(q.column(j).norm(), 1.0, epsilon = 1e-6);
+        }
+
+        // Orthogonal columns
+        for i in 0..cols {
+            for j in (i+1)..cols {
+                assert_relative_eq!(q.column(i).dot(&q.column(j)), 0.0, epsilon = 1e-6);
+            }
+        }
+
         assert!(check_upper_triangular(&r, 1e-4));
-        assert!(check_approx_equal(&qtq,  &DMatrix::identity(q_cp.ncols(), q_cp.ncols()), 1e-4));
         assert!(check_approx_equal(&reconstruct, &reconstructed, 1e-4));
 
-        print!("Deterministic Time {:2?}", duration2);
-        print!("Sketched Time {:2?}", duration1);
     }
     
 }

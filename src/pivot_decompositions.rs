@@ -151,6 +151,7 @@ pub fn economic_qrcp(
 #[cfg(test)]
 mod tests
 {
+    use approx::assert_relative_eq;
     use nalgebra::DMatrix;
     use super::{qrcp, economic_qrcp};
     use crate::sketch::{sketching_operator, DistributionType};
@@ -206,9 +207,21 @@ mod tests
         
         let reconstruct = &q*&r;
         let reconstructed = &q_cp*&r_cp*&p_cp;
-        let qtq = &q_cp.transpose()*&q_cp;
+        
+        // Normal columns
+        let cols = q.ncols();
+        for j in 0..cols {
+            assert_relative_eq!(q.column(j).norm(), 1.0, epsilon = 1e-6);
+        }
+
+        // Orthogonal columns
+        for i in 0..cols {
+            for j in (i+1)..cols {
+                assert_relative_eq!(q.column(i).dot(&q.column(j)), 0.0, epsilon = 1e-6);
+            }
+        }
+        
         assert!(check_upper_triangular(&r_cp, 1e-4));
-        assert!(check_approx_equal(&qtq,  &DMatrix::identity(q_cp.ncols(), q_cp.ncols()), 1e-4));
         assert!(check_approx_equal(&reconstruct, &reconstructed, 1e-4));
     }
     

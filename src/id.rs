@@ -226,22 +226,22 @@ mod tests {
         
         // let matrix = DMatrix::from_fn(m, n, |_i, _j| uniform.sample(&mut rng));
         let matrix = rank_k_matrix(m, n, k);
-        let start1 = Instant::now();
+        let start_deterministic = Instant::now();
         let (x, indices) = osid_qrcp(&matrix, k, MatrixAttribute::Column);
         let y_subset = matrix.select_columns(&indices);
         let y_approx = y_subset * x;
-        let end1 = start1.elapsed();
+        let duration_deterministic = start_deterministic.elapsed();
 
-        let start2 = Instant::now();
+        let start_randomised = Instant::now();
         let (x_randomised, indices) = osid_qrcp(&matrix, k, MatrixAttribute::Column);
         let y_subset = matrix.select_columns(&indices);
         let y_random_approx = y_subset * x_randomised;
-        let end2 = start2.elapsed();
+        let duration_randomised = start_randomised.elapsed();
         
         println!("Difference Deterministic: {}", (&y_approx-&matrix).norm()/(matrix.norm()));
         println!("Difference Randomised: {}", (&y_random_approx-&matrix).norm()/(matrix.norm()));
         println!("Difference Between Approximations: {}", (&y_approx-&y_random_approx).norm());
-        println!("Deterministic Time: {:.2?}, Randomised Time:{:.2?}", end1, end2);
+        println!("Deterministic Time: {:.2?}, Randomised Time:{:.2?}", duration_deterministic, duration_randomised);
         println!("{}", k);
     }
     #[test]
@@ -253,22 +253,22 @@ mod tests {
         let matrix = rank_k_matrix(m, n, k);
         
         // Deterministic ID
-        let start1 = Instant::now();
+        let start_deterministic = Instant::now();
         let (z, i, j, x) = two_sided_id(&matrix, k);
         let y_subset = matrix.select_rows(&i).select_columns(&j);
         let y_approx = &z * &y_subset * &x;
-        let duration1 = start1.elapsed();
+        let duration_deterministic = start_deterministic.elapsed();
         
         // Randomised ID
-        let start2 = Instant::now();
+        let start_randomised = Instant::now();
         let (z_random, i_random, j_random, x_random) = two_sided_id_randomised(&matrix, k);
         let y_subset_random = matrix.select_rows(&i_random).select_columns(&j_random);
         let y_approx_random = &z_random * &y_subset_random * &x_random;
-        let duration2 = start2.elapsed();
+        let duration_randomised = start_randomised.elapsed();
         
         println!("Difference (Deterministic, Randomised): {}, {}", (&y_approx-&matrix).norm()/(matrix.norm()), (&y_approx_random-&matrix).norm()/(matrix.norm()));
         println!("Difference Between Approximations: {}", (&y_approx-&y_approx_random).norm());
-        println!("Time (Deterministic, Randomised): {:.2?} {:.2?}", duration1, duration2);
+        println!("Time (Deterministic, Randomised): {:.2?} {:.2?}", duration_deterministic, duration_randomised);
         println!("{}", k);
     }
     #[test]
@@ -280,24 +280,24 @@ mod tests {
         let matrix = rank_k_matrix(m, n, k);
         
         // Deterministic CUR
-        let start1 = Instant::now();
+        let start_deterministic = Instant::now();
         let (c, u, r) = cur(&matrix, k);
         let y_column_subset = matrix.select_columns(&c);
         let y_row_subset = matrix.select_rows(&r);
         let y_approx = y_column_subset * &u * y_row_subset;
-        let duration1 = start1.elapsed();
+        let duration_deterministic = start_deterministic.elapsed();
         
         // Randomised CUR
-        let start2 = Instant::now();
+        let start_randomised = Instant::now();
         let (c_random, u_random, r_random) = cur_randomised(&matrix, k);
         let y_column_subset_random = matrix.select_columns(&c_random);
         let y_row_subset_random = matrix.select_rows(&r_random);
         let y_approx_random = y_column_subset_random * &u_random * y_row_subset_random;
-        let duration2 = start2.elapsed();
+        let duration_randomised = start_randomised.elapsed();
         
         println!("Difference (Deterministic, Randomised): {}, {}", (&y_approx-&matrix).norm()/(matrix.norm()), (&y_approx_random-&matrix).norm()/(matrix.norm()));
         println!("Difference Between Approximations: {}", (&y_approx-&y_approx_random).norm());
-        println!("Time (Deterministic, Randomised): {:.2?} {:.2?}", duration1, duration2);
+        println!("Time (Deterministic, Randomised): {:.2?} {:.2?}", duration_deterministic, duration_randomised);
         println!("{}", k);
     }
     
