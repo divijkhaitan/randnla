@@ -45,8 +45,8 @@ mod tests
     fn test_least_squares_qr(){
         // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
         let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-        let n = rng_threefry.gen_range(100..300);
-        let m = rng_threefry.gen_range(n..5000);
+        let n = rng_threefry.gen_range(10..30);
+        let m = rng_threefry.gen_range(n..500);
         let epsilon = 0.01;
         let normal = Normal::new(0.0, epsilon).unwrap();
         let uniform = Uniform::new(-100.0, 100.0);

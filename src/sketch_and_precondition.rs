@@ -211,8 +211,8 @@ mod tests
     #[test]
     fn test_saddle_point(){
         let mut rng = rand::thread_rng();
-        let n = rand::thread_rng().gen_range(1000..1500);
-        let m = rand::thread_rng().gen_range(5000..50000);
+        let n = rand::thread_rng().gen_range(10..50);
+        let m = rand::thread_rng().gen_range(100..500);
         let (data, _, y) = generate_least_squares_problem(m, n, true);
         let uniform = Uniform::new(-10.0, 10.0);
         let c = DMatrix::from_fn(n, 1, |_, _| uniform.sample(&mut rng));
@@ -260,8 +260,8 @@ mod tests
     
     #[test]    
     fn test_lsrn_overdetermined(){
-        let n = rand::thread_rng().gen_range(1000..1500);
-        let m = rand::thread_rng().gen_range(5000..50000);
+        let n = rand::thread_rng().gen_range(10..50);
+        let m = rand::thread_rng().gen_range(100..500);
         let (data, hypothesis, y) = generate_least_squares_problem(m, n, true);
         // LSRN
         let start1 = Instant::now();

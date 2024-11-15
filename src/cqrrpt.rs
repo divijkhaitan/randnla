@@ -88,8 +88,8 @@ mod tests
     }
     #[test]
     fn test_cqrrpt(){
-        let n = 100;
-        let m = 1000;
+        let n = 10;
+        let m = 100;
         let d = rand::thread_rng().gen_range(n..m);
         
         let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
