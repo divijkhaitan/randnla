@@ -136,6 +136,10 @@ pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 
 
 
+// pub fn rand_CURD1()
+
+
+
 
 #[cfg(test)]
 mod test_drivers
@@ -217,6 +221,8 @@ mod test_drivers
         let A_rand_psd = &A_rand*(&A_rand.transpose());
         // println!("A_Rand: \n{}", A_rand);
 
+
+        // TODO: Decide how to set these values
         let k = dims-5;
         let epsilon= 0.01;
         let s = 5;
@@ -246,39 +252,14 @@ mod test_drivers
         
         let V = normal_evd.eigenvectors;
         let lambda = normal_evd.eigenvalues;
-        // println!("Normal EVD V Component:{}\n", V);
-        // println!("Normal EVD Lambda Component:{}\n", lambda);
-        
-        
-        // some of the resultant matrix entries have flipped signs wrt to the results from the inbuilt implementations, but we don't care about the signs so take absolute values for error calculation
-        
-        let v_rand_abs = v_rand.map(|x| x.abs());
-        let V_abs = V.map(|x: f64| x.abs());
-        
-        // let element_wise_diff_sum: f64 = v_rand_abs.iter()
-        //     .zip(V_abs.iter())
-        //     .map(|(a, b)| (a - b).abs())
-        //     .sum();
-        println!("\n=======Reached=======\n");
-        println!("V_rand_abs Dims: {:?}", v_rand_abs);
-        println!("V_abs Dims: {:?}", V_abs);
-        // doing this wont work cause different dimensions since we are approximating
-        let norm_diff_abs = (&v_rand_abs - &V_abs).norm();
-        
-        let lambda_rand_abs = DVector::from_vec(lambda_rand.iter().map(|x| x.abs()).collect());
-        let lambda_abs = lambda.map(|x| x.abs());
-        
-        // let lambda_element_wise_diff_sum: f64 = lambda_rand_abs.iter()
-        //     .zip(lambda_abs.iter())
-        //     .map(|(a, b)| (a - b).abs())
-        //     .sum();
-        
-        let lambda_norm_diff_abs = (&lambda_rand_abs - &lambda_abs).norm();
-        
-        // println!("Sum of element-wise differences in V: {}", element_wise_diff_sum);
-        println!("Norm of difference between absolute V matrices: {}", norm_diff_abs);
-        // println!("Sum of element-wise differences in Lambda: {}", lambda_element_wise_diff_sum);
-        println!("Norm of difference between absolute Lambda vectors: {}", lambda_norm_diff_abs);
+
+
+        // TODO: Have better tests
+        let rand_v_norm = v_rand.norm();
+        let v_norm = V.norm();
+        let diff_v = rand_v_norm - v_norm;
+        println!("Difference between V's: {}", diff_v);
+
 
 
 
