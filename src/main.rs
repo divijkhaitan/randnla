@@ -29,10 +29,22 @@ pub enum DistributionType {
 
 
 fn main() {
-    
+
+    // give a matrix that is not positive semi definite and perform cholseky decomposition on it
+    let a = dmatrix![2.0, -1.0, 0.0;
+                                                                -1.0, 2.0, -1.0;
+                                                                0.0, -1.0, 2.0];
+
+    // let randevd2 = lora_drivers::rand_EVD2(&a, 3,1);
+    // let unwrapped_randevd2 = randevd2.unwrap();
+    // let V = unwrapped_randevd2.0;
+    // println!("RandEVD2 V Component: \n{}", V);
+    // println!("RandEVD2 Lambda Component: \n{:?}", unwrapped_randevd2.1);
+
+
+ 
     
 }
-
 
 
 

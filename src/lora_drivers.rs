@@ -1,6 +1,11 @@
-use nalgebra::{DMatrix};
+use nalgebra::{DMatrix, dmatrix};
+use crate::sketch;
 use crate::lora_helpers;
 
+
+/*
+TODO: Remove the use of clones and try to optimize performance wherever you can
+ */
 
 
 
@@ -22,7 +27,7 @@ pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f6
     return U, S, V
      */
     
-    // TODO: check the positive and negative switching of the values
+    // TODO: check the positive and negative switching of the values compared to Python
     let (Q,B) = lora_helpers::QB1(&A, k+s, epsilon);
     let r = std::cmp::min(k, Q.ncols());
     let mysvd_rand = B.clone().svd(true, true);
@@ -41,6 +46,94 @@ pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f6
 }
 
 
+
+// 1: functionEVD1(A,k,ε,s)
+// Inputs:
+// A is an n × n Hermitian matrix. The returned approximation will have rank at most k. The approximation produced by the randomized phase of the algorithm will attempt to A to within ε error, but will not produce an approximation of rank greater than k + s.
+// Output:
+// Approximations of the dominant eigenvectors and eigenvalues of A.
+// Abstract subroutines:
+// QBDecomposer generates a QB decomposition of a given matrix; it tries to reach a prescribed error tolerance but may stop early if it reaches a prescribed rank limit.
+// 2: Q, B = QBDecomposer(A, k + s, ε/2)
+// 3: C=BQ #sinceB=Q∗A,wehaveC=Q∗AQ
+// 4: U, λ = eigh(C) # full Hermitian eigendecomposition
+// 5: r = min{k, number of entries in λ}
+// 6: P = argsort(|λ|)[: r]
+// 7: U = U[:,P]
+// 8: λ=λ[P]
+// 9: V=QU
+// 10: return V, λ
+
+// pub fn rand_EVD1(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>)
+// {
+//     println!("Running REVD1");
+
+
+
+
+
+
+
+
+
+//     let myevd_rand = C.clone().symmetric_eigen();
+//     let U_binding = myevd_rand.eigenvectors;
+//     let U = U_binding.columns(0, k).clone();
+//     let lambda_binding = myevd_rand.eigenvalues;
+//     let lambda = lambda_binding.rows(0, k).clone();
+//     let V = Q*U;
+//     return (V, lambda.into());
+// }
+
+// 2: S = TallSketchOpGen(A, k + s)
+// 3: Y=AS
+// 4: ν = √n · εmach · ∥Y∥ # εmach is machine epsilon for current numeric type
+// 5: Y = Y + νS # regularize for numerical stability
+// 6: R = chol(S∗Y) # R is upper-triangular and R∗R = S∗Y = S∗(A + νI)S
+// 7: B=Y(R∗)−1 # Bhasnrowsandk+scolumns
+// 8: V, Σ, W∗ = svd(B) # can discard W
+// 9: λ = diag(Σ2) # extract the diagonal
+// 10: r = min{k, number of entries in λ that are greater than ν}
+// 11: λ = λ[:r] − ν # undo regularization
+// 12: V = V[:, :r].
+// 13: return V, λ
+
+    
+// only for positive semi-definite matrices
+// For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
+pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
+    println!("Running REVD2");
+    let S = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
+    let Y = A*&S;
+    let mach_eps = f64::EPSILON;
+    let nu = (A.nrows() as f64).sqrt() * mach_eps * Y.norm();
+    let Y_new = Y + (nu*&S);
+    let SY = S.adjoint()*&Y_new;
+
+    let chol = match SY.cholesky() {
+        Some(c) => c,
+        None => return Err("Cholesky Failed"),
+    };
+    // in the monograph, we need the upper triangular part but in nalgebra we get the lower triangular part, so we can't use it directly
+    let R = chol.l().transpose();
+    let B = Y_new*(R.try_inverse().unwrap());
+    let mysvd = B.clone().svd(true, true);
+
+    let V_binding = mysvd.u.unwrap();
+    let W_binding = mysvd.v_t.unwrap().transpose();
+    let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
+    let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
+    println!("Lambda: {:?}", lambda);
+    // find number of entries in lambda that are greater than nu
+    let r = std::cmp::min(k, lambda.iter().filter(|&&x| x > nu).count());
+    println!("R: {}", r);
+    let lambda1 = lambda.iter().take(r).map(|x| x - nu).collect::<Vec<f64>>();
+    let V = V_binding.columns(0, r).clone();
+
+    let V_final = V.into();
+
+    return Ok((V_final, lambda1));
+}
 
 
 
@@ -62,7 +155,7 @@ mod test_drivers
     
 
     #[test]
-    fn test_drivers(){
+    fn test_randSVD(){
         let a = dmatrix![1.0, 2.0, 3.0;
                     4.0, 5.0, 6.0;
                     7.0, 8.0, 9.0];
@@ -108,6 +201,37 @@ mod test_drivers
         println!("Difference between S: {}", diff_s);
         println!("Difference between V: {}", diff_v);
 
+    }
+
+    #[test]
+    fn test_randEVD2(){
+        let A_psd = dmatrix![2.0, -1.0, 0.0;
+        -1.0, 2.0, -1.0;
+        0.0, -1.0, 2.0];
+
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let normal = Normal::new(0.0, 1.0).unwrap();
+        let dims = 10;
+        let A_rand =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
+        // println!("A_Rand: \n{}", A_rand);
+
+        let k = dims;
+        let epsilon= 0.01;
+        let s = 5;
+
+
+        let randevd2 = lora_drivers::rand_EVD2(&A_psd, 3, 1);
+        match randevd2 {
+            Ok((v, lambda)) => {
+                println!("RandEVD2 V Component:");
+                println!("{}", v); // Uses nalgebra's Display implementation
+                
+                println!("\nRandEVD2 Lambda Component:");
+                // Print lambda values one per line with index
+                println!("Lambda: {:?}", lambda);
+            },
+            Err(e) => println!("Error: {}", e),
+        }
 
 
 

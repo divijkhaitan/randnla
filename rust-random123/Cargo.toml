@@ -1,0 +1,11 @@
+[package]
+name = "rand_123"
+version = "0.1.0"
+authors = ["Justin Gullingsrud <justinrocks@gmail.com>"]
+
+[dependencies]
+rand = "0.8.5"
+rand_core = "0.6.4"
+
+[dev-dependencies]
+
