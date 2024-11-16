@@ -112,7 +112,7 @@ pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 
     let chol = match SY.cholesky() {
         Some(c) => c,
-        None => return Err("Cholesky Failed"),
+        None => return Err("My Cholesky Failed"),
     };
     // in the monograph, we need the upper triangular part but in nalgebra we get the lower triangular part, so we can't use it directly
     let R = chol.l().transpose();
@@ -123,10 +123,8 @@ pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
     let W_binding = mysvd.v_t.unwrap().transpose();
     let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
     let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
-    println!("Lambda: {:?}", lambda);
     // find number of entries in lambda that are greater than nu
     let r = std::cmp::min(k, lambda.iter().filter(|&&x| x > nu).count());
-    println!("R: {}", r);
     let lambda1 = lambda.iter().take(r).map(|x| x - nu).collect::<Vec<f64>>();
     let V = V_binding.columns(0, r).clone();
 
@@ -203,6 +201,8 @@ mod test_drivers
 
     }
 
+
+
     #[test]
     fn test_randEVD2(){
         let A_psd = dmatrix![2.0, -1.0, 0.0;
@@ -212,27 +212,73 @@ mod test_drivers
         let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
         let normal = Normal::new(0.0, 1.0).unwrap();
         let dims = 10;
+        
         let A_rand =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
+        let A_rand_psd = &A_rand*(&A_rand.transpose());
         // println!("A_Rand: \n{}", A_rand);
 
-        let k = dims;
+        let k = dims-5;
         let epsilon= 0.01;
         let s = 5;
 
+        let tick = Instant::now();
+        let randevd2 = lora_drivers::rand_EVD2(&A_rand_psd, k, s);
+        let tock = tick.elapsed();
 
-        let randevd2 = lora_drivers::rand_EVD2(&A_psd, 3, 1);
-        match randevd2 {
+        println!("Time taken by RandEVD2: {:?}", tock);
+
+        let (v_rand, lambda_rand) = match randevd2 {
             Ok((v, lambda)) => {
-                println!("RandEVD2 V Component:");
-                println!("{}", v); // Uses nalgebra's Display implementation
-                
-                println!("\nRandEVD2 Lambda Component:");
-                // Print lambda values one per line with index
-                println!("Lambda: {:?}", lambda);
+                // println!("RandEVD2 V Component:");
+                println!("OK");
+                (v, lambda)
             },
-            Err(e) => println!("Error: {}", e),
-        }
+            Err(e) => {
+                println!("Error: {}", e);
+                return;
+            },
+        };
 
+        let tick = Instant::now();
+        let normal_evd = A_rand_psd.symmetric_eigen();
+        let tock = tick.elapsed();
+        println!("Time taken by Normal EVD: {:?}", tock);
+        
+        let V = normal_evd.eigenvectors;
+        let lambda = normal_evd.eigenvalues;
+        // println!("Normal EVD V Component:{}\n", V);
+        // println!("Normal EVD Lambda Component:{}\n", lambda);
+        
+        
+        // some of the resultant matrix entries have flipped signs wrt to the results from the inbuilt implementations, but we don't care about the signs so take absolute values for error calculation
+        
+        let v_rand_abs = v_rand.map(|x| x.abs());
+        let V_abs = V.map(|x: f64| x.abs());
+        
+        // let element_wise_diff_sum: f64 = v_rand_abs.iter()
+        //     .zip(V_abs.iter())
+        //     .map(|(a, b)| (a - b).abs())
+        //     .sum();
+        println!("\n=======Reached=======\n");
+        println!("V_rand_abs Dims: {:?}", v_rand_abs);
+        println!("V_abs Dims: {:?}", V_abs);
+        // doing this wont work cause different dimensions since we are approximating
+        let norm_diff_abs = (&v_rand_abs - &V_abs).norm();
+        
+        let lambda_rand_abs = DVector::from_vec(lambda_rand.iter().map(|x| x.abs()).collect());
+        let lambda_abs = lambda.map(|x| x.abs());
+        
+        // let lambda_element_wise_diff_sum: f64 = lambda_rand_abs.iter()
+        //     .zip(lambda_abs.iter())
+        //     .map(|(a, b)| (a - b).abs())
+        //     .sum();
+        
+        let lambda_norm_diff_abs = (&lambda_rand_abs - &lambda_abs).norm();
+        
+        // println!("Sum of element-wise differences in V: {}", element_wise_diff_sum);
+        println!("Norm of difference between absolute V matrices: {}", norm_diff_abs);
+        // println!("Sum of element-wise differences in Lambda: {}", lambda_element_wise_diff_sum);
+        println!("Norm of difference between absolute Lambda vectors: {}", lambda_norm_diff_abs);
 
 
 
