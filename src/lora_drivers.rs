@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(warnings)]
+#![allow(unused_imports)]
 use nalgebra::{DMatrix, dmatrix};
 use crate::sketch;
 use crate::lora_helpers;
@@ -36,11 +39,12 @@ pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f6
 // For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
 pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
     println!("Running REVD2");
-    let S = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
-    let Y = A*&S;
+    let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
+    let S = S_wrapped.unwrap();
+    let Y = A*&(S);
     let mach_eps = f64::EPSILON;
     let nu = (A.nrows() as f64).sqrt() * mach_eps * Y.norm();
-    let Y_new = Y + (nu*&S);
+    let Y_new = Y + (nu*&(S));
     let SY = S.adjoint()*&Y_new;
 
     let chol = match SY.cholesky() {

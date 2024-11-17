@@ -9,3 +9,5 @@ pub mod errors;
 pub mod pivot_decompositions;
 pub mod id;
 pub mod cqrrpt;
+pub mod lora_drivers;
+pub mod lora_helpers;
