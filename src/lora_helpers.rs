@@ -8,7 +8,7 @@ use crate::sketch;
 
 
 
-// ===================================================================================================
+// ======================================================================================
 // QB Decomposer
 
 //     /*
@@ -39,10 +39,10 @@ pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f
 
 
 // QB Decomposer
-// ===================================================================================================
+// ======================================================================================
 
 
-// ===================================================================================================
+// ======================================================================================
 // Range Finder
 
 //     /*
@@ -62,11 +62,11 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 }
 
 // Range Finder
-// ===================================================================================================
+// ======================================================================================
 
 
 
-// ===================================================================================================
+// ======================================================================================
 // Tall Sketch Operator Generator
 
 
@@ -76,7 +76,7 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 
 
 // Tall Sketch Operator Generator
-// ===================================================================================================
+// ======================================================================================
 
 
 
@@ -87,7 +87,7 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 
 
 
-// ===================================================================================================
+// ======================================================================================
 // Orth methods
 
 pub fn Orth(X: &DMatrix<f64>) -> DMatrix<f64> {
@@ -115,12 +115,12 @@ impl Stabilizer {
     }
 }
 // Orth methods
-// =================================================================================================
+// ====================================================================================
 
 
 
 
-// =================================================================================================
+// ====================================================================================
 // For CURD1
 
 
@@ -150,13 +150,11 @@ pub fn osid_qrcp(Y: &DMatrix<f64>, k: usize, axis: usize) -> (DMatrix<f64>, Vec<
 
         let mut X = DMatrix::<f64>::zeros(k, w);
 
-
+        // needed to change nalgebra internally to get this functionality
         let J_indices = J.permutation_indices(); // Vec<(usize, usize)>
         
-
+        // but we can get it with a bit of trickery without that too
         let mut permutation_indices: Vec<usize> = (0..w).collect();
-        
-        // get final permutation
         for &(i1, i2) in J_indices.iter() {
             permutation_indices.swap(i1, i2);
         }
@@ -176,7 +174,8 @@ pub fn osid_qrcp(Y: &DMatrix<f64>, k: usize, axis: usize) -> (DMatrix<f64>, Vec<
         }
 
         let J: Vec<usize> = permutation_indices.iter().take(k).cloned().collect();
-
+        
+        // TODO: Round up?
         return (X, J)
 
     } else {
@@ -190,17 +189,46 @@ pub fn osid_qrcp(Y: &DMatrix<f64>, k: usize, axis: usize) -> (DMatrix<f64>, Vec<
 
 
 
+pub fn osid1(A: &DMatrix<f64>, k: usize, s: usize, axis: usize) -> (DMatrix<f64>,Vec<usize>) {
+    if axis == 1 {
+        // Row ID
+        let n = A.nrows();
+        let S = sketch::sketching_operator(sketch::DistributionType::Gaussian, n, k + s);
+        let Y = A * S;
+        let (Z, I) = osid_qrcp(&Y, k, axis);
+        return (Z, I);
+    } else {
+        // Column ID (what we need)
+
+        let m = A.ncols(); // since we call the sketch on the adjoint so rows become cols
+        let S_t = sketch::sketching_operator(sketch::DistributionType::Gaussian, m, k + s);
+        let S = S_t.adjoint();
+        let Y = &S * A;
+        let (X, J) = osid_qrcp(&Y, k, axis);
+        return (X, J);
+    }
+}
+
+
+
 
 
 // For CURD1
-// =================================================================================================
+// ====================================================================================
 
-// =================================================================================================
+
+
+
+
+
+
+
+// ====================================================================================
 // Misc
 
 
 
-// =================================================================================================
+// ====================================================================================
 
 
 
@@ -238,6 +266,23 @@ mod test_helpers
         let (X,Js) = lora_helpers::osid_qrcp(&a, k, axis);
         println!("X: \n{}", X);
         println!("Js: \n{:?}", Js);
+
+
+    }
+
+    #[test]
+    fn test_osid1(){
+        let A = dmatrix![1.0, 2.0, 3.0;
+                    4.0, 5.0, 6.0;
+                    7.0, 8.0, 9.0];
+        
+        let k = 2;
+        let s = 0;
+        let axis = 2;
+
+        let (X, J) = lora_helpers::osid1(&A, k, s, 0);
+        println!("Interpolative Matrix X:\n{}", X);
+        println!("Selected Indices J: {:?}", J)
 
 
     }
