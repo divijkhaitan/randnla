@@ -15,7 +15,7 @@ pub fn cgls(
     let s = a.transpose() * &r;      // s = A^T * r
     let mut p = s.clone();               // Initial search direction
     let mut norm_s = s.dot(&s);          // Residual norm squared
-    
+    let mut converged = false;
     for i in 0..num_iterations {
         let ap = a * &p;                     // A * p
         let alpha = norm_s / ap.dot(&ap);    // Step size alpha
@@ -27,6 +27,7 @@ pub fn cgls(
         // Convergence check based on tolerance
         if norm_s_new.sqrt() < tolerance {
             println!("CGLS converged after {} iterations", i + 1);
+            converged = true;
             break;
         }
 
@@ -34,7 +35,10 @@ pub fn cgls(
         norm_s = norm_s_new;
         p = &s_new + beta * p;               // Update search direction
     }
-    
+    if !converged
+    {
+        println!("CGLS failed to converged after {} iterations", num_iterations);
+    }
     x
 }
 
