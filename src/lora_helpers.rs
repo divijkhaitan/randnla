@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+#![allow(warnings)]
+#![allow(unused_imports)]
+
 use nalgebra::{DMatrix, dmatrix, ColPivQR};
 use rand::Rng;
 use crate::sketch;
@@ -43,7 +47,7 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
     let n = A.nrows();
     // replace with TallSketchOpGen
     let S = sketch::sketching_operator(sketch::DistributionType::Gaussian, n, k);
-    let Y = A*S;
+    let Y = A*&(S.unwrap());
     let Q = Orth(&Y);
     return Q; 
 }
