@@ -1,4 +1,4 @@
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, dmatrix, ColPivQR};
 use rand::Rng;
 use crate::sketch;
 
@@ -8,14 +8,9 @@ use crate::sketch;
 
 
 
-// ===================================================================================================
+// ======================================================================================
 // QB Decomposer
 
-//     /*
-//     Q = RangeFinder(A, k, epsilon)
-//     B = Q^*A
-//     return Q, B
-//      */
 pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f64>) {
     let Q = RF1(A, k);
     // println!("Q: \n{}", Q);
@@ -36,21 +31,13 @@ pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f
 // }
 
 
-
-
 // QB Decomposer
-// ===================================================================================================
+// ======================================================================================
 
 
-// ===================================================================================================
+// ======================================================================================
 // Range Finder
 
-//     /*
-//     S = TallSketchOpGen(A, k)
-//     Y = AS
-//     Q = orth(Y)
-//     return Q
-//     */
 // does this need to take epsilon parameter?
 pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
     let n = A.nrows();
@@ -62,7 +49,21 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 }
 
 // Range Finder
-// ===================================================================================================
+// ======================================================================================
+
+
+
+// ======================================================================================
+// Tall Sketch Operator Generator
+
+
+
+
+
+
+
+// Tall Sketch Operator Generator
+// ======================================================================================
 
 
 
@@ -73,20 +74,14 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 
 
 
-// ===================================================================================================
+// ======================================================================================
 // Orth methods
 
 pub fn Orth(X: &DMatrix<f64>) -> DMatrix<f64> {
     X.clone().qr().q()
 }
 
-
-
-
-
-
 pub struct Stabilizer {
-    // Parameters for stabilization method can be added here
 }
 
 impl Stabilizer {
@@ -101,11 +96,45 @@ impl Stabilizer {
     }
 }
 // Orth methods
-// =================================================================================================
+// ====================================================================================
 
 
 
 
+
+
+// ====================================================================================
+// Misc
+
+
+
+// ====================================================================================
+
+
+
+
+
+
+
+
+
+
+
+#[cfg(test)]
+mod test_helpers
+{
+    use nalgebra::{DMatrix, DVector, dmatrix, dvector};
+    use crate::lora_helpers;
+    use crate::lora_drivers;
+    use rand_123::rng::ThreeFry2x64Rng;
+    use rand_core::{SeedableRng, RngCore};
+    use rand::Rng;
+    use std::time::Instant;
+    use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
+    use rand::distributions::DistIter;
+
+
+}
 
 
 
