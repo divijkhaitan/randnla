@@ -9,23 +9,10 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
 
 
 
-
-
-
 // randomized SVD
 pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>)
 {
     println!("Running RSVD");
-    /*
-    Q, B = QBDecomposer(A, k+s, epsilon)
-    r = min(k, Q.ncols())
-    U, S, V = svd(B)
-    U = U[:, :r]
-    V = V[: , : r]
-    S = S[: r , : r]
-    U = QU
-    return U, S, V
-     */
     
     // TODO: check the positive and negative switching of the values compared to Python
     let (Q,B) = lora_helpers::QB1(&A, k+s, epsilon);
@@ -42,61 +29,7 @@ pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f6
     let U_final = Q*U;
     return (U_final, S.into(), V.into());
 
-
 }
-
-
-
-// 1: functionEVD1(A,k,ε,s)
-// Inputs:
-// A is an n × n Hermitian matrix. The returned approximation will have rank at most k. The approximation produced by the randomized phase of the algorithm will attempt to A to within ε error, but will not produce an approximation of rank greater than k + s.
-// Output:
-// Approximations of the dominant eigenvectors and eigenvalues of A.
-// Abstract subroutines:
-// QBDecomposer generates a QB decomposition of a given matrix; it tries to reach a prescribed error tolerance but may stop early if it reaches a prescribed rank limit.
-// 2: Q, B = QBDecomposer(A, k + s, ε/2)
-// 3: C=BQ #sinceB=Q∗A,wehaveC=Q∗AQ
-// 4: U, λ = eigh(C) # full Hermitian eigendecomposition
-// 5: r = min{k, number of entries in λ}
-// 6: P = argsort(|λ|)[: r]
-// 7: U = U[:,P]
-// 8: λ=λ[P]
-// 9: V=QU
-// 10: return V, λ
-
-// pub fn rand_EVD1(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>)
-// {
-//     println!("Running REVD1");
-
-
-
-
-
-
-
-
-
-//     let myevd_rand = C.clone().symmetric_eigen();
-//     let U_binding = myevd_rand.eigenvectors;
-//     let U = U_binding.columns(0, k).clone();
-//     let lambda_binding = myevd_rand.eigenvalues;
-//     let lambda = lambda_binding.rows(0, k).clone();
-//     let V = Q*U;
-//     return (V, lambda.into());
-// }
-
-// 2: S = TallSketchOpGen(A, k + s)
-// 3: Y=AS
-// 4: ν = √n · εmach · ∥Y∥ # εmach is machine epsilon for current numeric type
-// 5: Y = Y + νS # regularize for numerical stability
-// 6: R = chol(S∗Y) # R is upper-triangular and R∗R = S∗Y = S∗(A + νI)S
-// 7: B=Y(R∗)−1 # Bhasnrowsandk+scolumns
-// 8: V, Σ, W∗ = svd(B) # can discard W
-// 9: λ = diag(Σ2) # extract the diagonal
-// 10: r = min{k, number of entries in λ that are greater than ν}
-// 11: λ = λ[:r] − ν # undo regularization
-// 12: V = V[:, :r].
-// 13: return V, λ
 
     
 // only for positive semi-definite matrices
@@ -114,6 +47,7 @@ pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
         Some(c) => c,
         None => return Err("My Cholesky Failed"),
     };
+
     // in the monograph, we need the upper triangular part but in nalgebra we get the lower triangular part, so we can't use it directly
     let R = chol.l().transpose();
     let B = Y_new*(R.try_inverse().unwrap());
@@ -123,6 +57,7 @@ pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
     let W_binding = mysvd.v_t.unwrap().transpose();
     let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
     let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
+
     // find number of entries in lambda that are greater than nu
     let r = std::cmp::min(k, lambda.iter().filter(|&&x| x > nu).count());
     let lambda1 = lambda.iter().take(r).map(|x| x - nu).collect::<Vec<f64>>();
@@ -132,12 +67,6 @@ pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 
     return Ok((V_final, lambda1));
 }
-
-
-
-
-// pub fn rand_CURD1()
-
 
 
 
@@ -155,7 +84,6 @@ mod test_drivers
     use rand::distributions::DistIter;
 
     
-
     #[test]
     fn test_randSVD(){
         let a = dmatrix![1.0, 2.0, 3.0;
@@ -166,7 +94,6 @@ mod test_drivers
         let normal = Normal::new(0.0, 1.0).unwrap();
         let dims = 10;
         let a =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
-        // println!("A: \n{}", a);
 
         let k = dims;
         let epsilon= 0.01;
@@ -177,11 +104,6 @@ mod test_drivers
         let tock = tick.elapsed();
 
         println!("Time taken by RandSVD: {:?}", tock);
-        // println!("U: \n{}", u);
-        // println!("S: \n{}", s);
-        // println!("V: \n{}", v);
-
-        // normal nalgebra svd
 
         let tick = Instant::now();
         let svd = a.svd(true, true);
@@ -192,9 +114,7 @@ mod test_drivers
         let deterministic_u = svd.u.unwrap();
         let deterministic_s = DMatrix::from_diagonal(&svd.singular_values);
         let deterministic_v = svd.v_t.unwrap().transpose();
-        // println!("Deterministic U: \n{}", deterministic_u);
-        // println!("Deterministic S: \n{}", deterministic_s);
-        // println!("Deterministic V: \n{}", deterministic_v);
+
 
         let diff_u = (&u - &deterministic_u).norm();
         let diff_s = (&s - &deterministic_s).norm();
@@ -219,10 +139,8 @@ mod test_drivers
         
         let A_rand =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
         let A_rand_psd = &A_rand*(&A_rand.transpose());
-        // println!("A_Rand: \n{}", A_rand);
 
 
-        // TODO: Decide how to set these values
         let k = dims-5;
         let epsilon= 0.01;
         let s = 5;
@@ -235,7 +153,6 @@ mod test_drivers
 
         let (v_rand, lambda_rand) = match randevd2 {
             Ok((v, lambda)) => {
-                // println!("RandEVD2 V Component:");
                 println!("OK");
                 (v, lambda)
             },
@@ -253,15 +170,10 @@ mod test_drivers
         let V = normal_evd.eigenvectors;
         let lambda = normal_evd.eigenvalues;
 
-
-        // TODO: Have better tests
         let rand_v_norm = v_rand.norm();
         let v_norm = V.norm();
         let diff_v = rand_v_norm - v_norm;
         println!("Difference between V's: {}", diff_v);
-
-
-
 
     }
 
