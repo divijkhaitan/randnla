@@ -34,6 +34,69 @@ pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f6
 
 }
 
+
+// assert k > 0
+// assert k <= min(A.shape)
+// if not np.isnan(tol):
+//     assert tol >= 0
+//     assert tol < np.inf
+// rng = np.random.default_rng(rng)
+// Q, B = self.qb(A, k + over, tol / 2, rng)
+// # B=Q^*A is necessary
+// C = B @ Q
+// lamb, U = la.eigh(C)
+// alamb = np.abs(lamb)
+// # d = number of columns in Q, d ≤ k + s
+// d = Q.shape[1]
+// r = min(k, d, np.count_nonzero(alamb > 10*np.finfo(float).eps))
+// I = np.argsort(-1*np.abs(alamb))[:r]
+// # indices of r largest components of |λ|
+// U = U[:, I]
+// lamb = lamb[I] 
+// V = Q @ U
+// return V, lamb
+
+pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, Vec<f64>) {
+
+    /*
+    A is nxn Hermitian matrix
+     */
+    println!("Running REVD1");
+    assert!(A == &A.adjoint());
+    
+    let (Q, B) = lora_helpers::QB1(A, k + s, epsilon);
+    
+    let C = &B * &Q;
+    
+    let eig = C.symmetric_eigen();
+
+    let mut eigvals = eig.eigenvalues;
+    let mut eigvecs = eig.eigenvectors;
+
+
+    let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
+
+    // float isn't an iterator and not comparable by default, so we can't just do sort_by ascending
+    let mut indices: Vec<usize> = abs_eigvals.iter().map(|&(_, i)| i).collect();
+    
+    indices.sort_by(|&i, &j| abs_eigvals[j].0.partial_cmp(&abs_eigvals[i].0).unwrap());
+
+    let d = Q.ncols();
+    let r = k.min(eigvals.iter().count());
+
+    // top r 
+    let selected_indices = indices.iter().take(r);
+
+    let lambda: Vec<f64> = selected_indices.clone().map(|&i| eigvals[i]).collect();
+
+
+    let U = DMatrix::from_columns(&selected_indices.map(|&i| eigvecs.column(i)).collect::<Vec<_>>()
+    );
+    let V = Q * U;
+    return (V, lambda);
+}
+
+
     
 // only for positive semi-definite matrices
 // For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
@@ -127,6 +190,41 @@ mod test_drivers
         println!("Difference between S: {}", diff_s);
         println!("Difference between V: {}", diff_v);
 
+    }
+
+
+    #[test]
+    fn test_rand_evd1() {
+        let a = dmatrix![
+            2.0, -1.0, 0.0;
+            -1.0, 2.0, -1.0;
+            0.0, -1.0, 2.0
+        ];
+        
+        let k = 2;
+        let epsilon = 1e-6;
+        let s = 1;
+
+        println!("Running test_rand_evd1");
+
+    
+        let (v, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+
+        println!("Rand Eigenvalues: {:?}", lambda);
+        println!("Rand Eigenvectors: {:?}", v);
+        
+        let normal_evd = a.symmetric_eigen();
+
+        println!("Normal Eigenvalues: {}", normal_evd.eigenvalues);
+        println!("Normal Eigenvectors: {}", normal_evd.eigenvectors);
+
+    
+        
+        // assert_eq!(v.ncols(), k);
+        // assert_eq!(lambda.len(), k);
+        
+        let diff_norm = (&v - &normal_evd.eigenvectors.columns(0, k)).norm();
+        // assert!(diff_norm < epsilon);
     }
 
 
