@@ -13,7 +13,7 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
 
 
 // randomized SVD
-pub fn rand_SVD(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>)
+pub fn rand_svd(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>)
 {
     println!("Running RSVD");
     
@@ -74,6 +74,7 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     let mut eigvecs = eig.eigenvectors;
 
 
+
     let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
 
     // float isn't an iterator and not comparable by default, so we can't just do sort_by ascending
@@ -92,7 +93,10 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
 
     let U = DMatrix::from_columns(&selected_indices.map(|&i| eigvecs.column(i)).collect::<Vec<_>>()
     );
+    // println!("Q: {}", Q);
+    // println!("U: {}", U);
     let V = Q * U;
+    println!("V: {}", V);
     return (V, lambda);
 }
 
@@ -100,7 +104,7 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     
 // only for positive semi-definite matrices
 // For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
-pub fn rand_EVD2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
+pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
     println!("Running REVD2");
     let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
     let S = S_wrapped.unwrap();
@@ -167,7 +171,7 @@ mod test_drivers
         let s = 5;
 
         let tick = Instant::now();
-        let (u, s, v) = lora_drivers::rand_SVD(&a, k, epsilon, s);
+        let (u, s, v) = lora_drivers::rand_svd(&a, k, epsilon, s);
         let tock = tick.elapsed();
 
         println!("Time taken by RandSVD: {:?}", tock);
@@ -207,24 +211,33 @@ mod test_drivers
 
         println!("Running test_rand_evd1");
 
-    
+        let tick = Instant::now();
         let (v, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        let tock = tick.elapsed();
+        println!("Time taken by RandEVD1: {:?}", tock);
 
-        println!("Rand Eigenvalues: {:?}", lambda);
+        // printed in col major order
         println!("Rand Eigenvectors: {:?}", v);
         
+
+        let tick = Instant::now();
         let normal_evd = a.symmetric_eigen();
-
-        println!("Normal Eigenvalues: {}", normal_evd.eigenvalues);
-        println!("Normal Eigenvectors: {}", normal_evd.eigenvectors);
-
+        let tock = tick.elapsed();
+        println!("Time taken by Normal EVD: {:?}", tock);
     
         
-        // assert_eq!(v.ncols(), k);
-        // assert_eq!(lambda.len(), k);
+        assert_eq!(v.ncols(), k);
+        assert_eq!(lambda.len(), k);
         
-        let diff_norm = (&v - &normal_evd.eigenvectors.columns(0, k)).norm();
-        // assert!(diff_norm < epsilon);
+        let trunc = normal_evd.eigenvectors.columns(0, k);
+
+        println!("Normal Eigenvectors: {}", trunc);
+        let trunc_flipped = DMatrix::from_fn(trunc.nrows(), trunc.ncols(), |i, j| -trunc[(i, j)]);
+
+        println!("Normal Eigenvectors Flipped Sign: {}", trunc_flipped);
+
+        println!("Norm difference between normal and randomized: {}", (&v - &trunc_flipped).norm());
+
     }
 
 
@@ -248,7 +261,7 @@ mod test_drivers
         let s = 5;
 
         let tick = Instant::now();
-        let randevd2 = lora_drivers::rand_EVD2(&A_rand_psd, k, s);
+        let randevd2 = lora_drivers::rand_evd2(&A_rand_psd, k, s);
         let tock = tick.elapsed();
 
         println!("Time taken by RandEVD2: {:?}", tock);
