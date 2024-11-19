@@ -96,7 +96,7 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     // println!("Q: {}", Q);
     // println!("U: {}", U);
     let V = Q * U;
-    println!("V: {}", V);
+    // println!("V: {}", V);
     return (V, lambda);
 }
 
@@ -204,6 +204,18 @@ mod test_drivers
             -1.0, 2.0, -1.0;
             0.0, -1.0, 2.0
         ];
+
+        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
+        let normal = Normal::new(0.0, 1.0).unwrap();
+        let dims = 10;
+        
+        let A_rand =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
+        let A_rand_psd = &A_rand*(&A_rand.transpose());
+
+
+        let k = dims -5;
+        let epsilon= 0.01;
+        let s = 5;
         
         let k = 2;
         let epsilon = 1e-6;
@@ -212,16 +224,16 @@ mod test_drivers
         println!("Running test_rand_evd1");
 
         let tick = Instant::now();
-        let (v, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        let (v, lambda) = lora_drivers::rand_evd1(&A_rand_psd, k, epsilon, s);
         let tock = tick.elapsed();
         println!("Time taken by RandEVD1: {:?}", tock);
 
         // printed in col major order
-        println!("Rand Eigenvectors: {:?}", v);
+        // println!("Rand Eigenvectors: {:?}", v);
         
 
         let tick = Instant::now();
-        let normal_evd = a.symmetric_eigen();
+        let normal_evd = A_rand_psd.symmetric_eigen();
         let tock = tick.elapsed();
         println!("Time taken by Normal EVD: {:?}", tock);
     
@@ -231,10 +243,10 @@ mod test_drivers
         
         let trunc = normal_evd.eigenvectors.columns(0, k);
 
-        println!("Normal Eigenvectors: {}", trunc);
+        // println!("Normal Eigenvectors: {}", trunc);
         let trunc_flipped = DMatrix::from_fn(trunc.nrows(), trunc.ncols(), |i, j| -trunc[(i, j)]);
 
-        println!("Normal Eigenvectors Flipped Sign: {}", trunc_flipped);
+        // println!("Normal Eigenvectors Flipped Sign: {}", trunc_flipped);
 
         println!("Norm difference between normal and randomized: {}", (&v - &trunc_flipped).norm());
 
