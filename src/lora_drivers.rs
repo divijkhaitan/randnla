@@ -210,9 +210,9 @@ mod test_randsvd
 
 
     #[test]
-    fn test_rand_svd_basic_functionality() {
-        let a = generate_random_matrix(3, 3);
-        let k = 2;
+    fn test_rand_svd_compare() {
+        let a = generate_random_matrix(100, 50);
+        let k = 45;
         let epsilon = 1e-6;
         let s = 2;
 
@@ -220,6 +220,7 @@ mod test_randsvd
 
 
          // Compare with deterministic SVD
+
          let svd = a.svd(true, true);
          let binding = svd.u.unwrap();
          let u_det = binding.columns(0, k).clone();
@@ -232,24 +233,12 @@ mod test_randsvd
          let s_det = rows_trunc.columns(0,k).clone();
 
          
-         
-         println!("Dimensions of Determ U: {:?}", u_det.shape());
-         println!("Dimensions of Rand U: {:?}", U.shape());
-         println!("Determ S: {}", s_det);
-         println!("Dimensions of Determ S: {:?}", s_det.shape());
-         println!("Rand S: {}", S);
-         println!("Dimensions of Rand S: {:?}", S.shape());
-         println!("Dimensions of Determ V: {:?}", v_det.shape());
-         println!("Determ V: {}", v_det);
-         println!("Dimensions of Rand V: {:?}", V.shape());
-         println!("Rand V: {}", V);
-         
         // reconstructed matrix:
         let approx = &U * &S * V.clone();
         println!("Approx Dims: {:?}", approx.shape());
 
         let orig_trunc = &u_det * &s_det * &v_det;
-        println!("Orig Trunc: {:?}", orig_trunc.shape());
+        println!("Orig Trunc Dims: {:?}", orig_trunc.shape());
 
 
         if (!check_approx_equal(&approx, &orig_trunc, 1.0)) {
@@ -422,68 +411,6 @@ mod test_randsvd
         let A_approx = &U * &S * V;
         let error = (&a - &A_approx).norm() / a.norm();
         assert!(error <= 1.0);
-    }
-
-    #[test]
-    fn test_randsvd_compare(){
-        // TODO: Test if values sorted in decreasing order etc
-        let height = 100;
-        let width = 50;
-        let a =  generate_random_matrix(height, width);
-
-        let k = width - 5;
-        let epsilon= 0.01;
-        let s = 0;
-
-        let tick = Instant::now();
-        let (u, s, v) = lora_drivers::rand_svd(&a, k, epsilon, s);
-        let tock = tick.elapsed();
-
-        println!("Time taken by RandSVD: {:?}", tock);
-
-        let call_a = a.clone();
-        let tick = Instant::now();
-        let svd = call_a.svd(true, true);
-        let tock = tick.elapsed();
-        println!("Time taken by Deterministic SVD: {:?}", tock);
-
-        // TODO: why is the reconstruction error high here
-
-
-        let deterministic_u = svd.u.unwrap();
-        let deterministic_s = DMatrix::from_diagonal(&svd.singular_values);
-        let deterministic_v = svd.v_t.unwrap().transpose();
-
-        println!("Dimensions of Determ U: {:?}", deterministic_u.shape());
-        println!("Dimensions of Determ S: {:?}", deterministic_s.shape());
-        println!("Dimensions of Determ V: {:?}", deterministic_v.shape());
-
-        println!("Dimensions of Rand U: {:?}", u.shape());
-        println!("Dimensions of Rand S: {:?}", s.shape());
-        println!("Dimensions of Rand V: {:?}", v.shape());
-
-        
-
-        // reconstruct the matrix a from u s and v
-        let reconstructed1 = &u * &s * &v.transpose();
-        println!("Reconstructed Dimensions: {:?}", reconstructed1.shape());
-        println!("Original Dimensions: {:?}", a.shape());
-
-        let diff1 = a.norm() - reconstructed1.norm();
-        println!("Difference between A and Rand Reconstructed: {}", diff1);
-        
-
-        // take the first k columns of deterministic u s and v and then reconstruct
-
-
-        let reconstructed2 = &deterministic_u * &deterministic_s * &deterministic_v.transpose();
-        let diff2 = a.columns(0,k).norm() - reconstructed2.columns(0,k).norm();
-        println!("Difference between Determ A and Reconstructed: {}", diff2);
-
-        let reconstruction_diff = diff1 - diff2.abs();
-        println!("Difference between Rand and Determ Reconstruction: {}", reconstruction_diff);
-
-
     }
 }
 
