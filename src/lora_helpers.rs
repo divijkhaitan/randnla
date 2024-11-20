@@ -105,6 +105,7 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
 
     let mut passes_done = 0;
     let n = A.ncols();
+    
     let mut S1: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = DMatrix::from_element(n, k, 0.0);
 
     let mut S2: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = DMatrix::from_element(n, k, 0.0);

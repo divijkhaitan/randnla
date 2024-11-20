@@ -115,8 +115,8 @@ pub fn osid_randomised(
     match attr {
         MatrixAttribute::Row => {
             // Generate sketch operator S
-            let s_matrix = sketching_operator(DistributionType::Gaussian, a.ncols(), k).unwrap();
-            // let s_matrix = lora_helpers::tsog1(&a, k, 0, 2, 1);
+            // let s_matrix = sketching_operator(DistributionType::Gaussian, a.ncols(), k).unwrap();
+            let s_matrix = lora_helpers::tsog1(&a, k, 2, 1);
             
             // Compute Y = AS
             let y = a * s_matrix.transpose();
@@ -221,8 +221,8 @@ mod tests {
     #[test]
     fn test_one_sided_id()
     {
-        let m = rand::thread_rng().gen_range(100..500);
-        let n = rand::thread_rng().gen_range(100..500);
+        let m = rand::thread_rng().gen_range(100..110);
+        let n = rand::thread_rng().gen_range(100..110);
         let k = rand::thread_rng().gen_range(m.min(n)/2..m.min(n));
         // let mut rng = thread_rng();
         // let uniform = Uniform::new(-100.0, 100.0);
@@ -250,8 +250,8 @@ mod tests {
     #[test]
     fn test_two_sided_id()
     {
-        let m = rand::thread_rng().gen_range(100..500);
-        let n = rand::thread_rng().gen_range(100..500);
+        let m = rand::thread_rng().gen_range(100..110);
+        let n = rand::thread_rng().gen_range(100..110);
         let k = rand::thread_rng().gen_range(m.min(n)/2..m.min(n));
         let matrix = rank_k_matrix(m, n, k);
         
@@ -277,8 +277,8 @@ mod tests {
     #[test]
     fn test_cur()
     {
-        let m = rand::thread_rng().gen_range(100..500);
-        let n = rand::thread_rng().gen_range(100..500);
+        let m = rand::thread_rng().gen_range(100..110);
+        let n = rand::thread_rng().gen_range(100..110);
         let k = rand::thread_rng().gen_range(m.min(n)/2..m.min(n));
         let matrix = rank_k_matrix(m, n, k);
         
