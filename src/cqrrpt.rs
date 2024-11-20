@@ -22,13 +22,13 @@ pub fn sap_chol_qrcp(a: &DMatrix<f64>, d: usize) -> (DMatrix<f64>, DMatrix<f64>,
 
     let r_sk_k = r_sk.view((0, 0), (k, k));
     let a_perm = a.select_columns(&j[..k]);
-    let r_sk_k_inv = r_sk_k.try_inverse().expect("Failed to compute inverse");
+    let r_sk_k_inv = r_sk_k.solve_upper_triangular(&DMatrix::identity(k, k)).unwrap();
     let a_pre = a_perm * r_sk_k_inv;
 
     let ata = a_pre.transpose() * &a_pre;
     let chol = ata.cholesky().expect("Cholesky decomposition failed");
     let r_pre = chol.l().transpose();
-    let q = a_pre * r_pre.clone().try_inverse().expect("Failed to compute inverse");
+    let q = a_pre * r_pre.solve_upper_triangular(&DMatrix::identity(n, n)).unwrap();
 
     let r = r_pre * r_sk.view((0, 0), (k, n));
 
