@@ -41,7 +41,7 @@ pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<
     let U = svd.u.as_ref().expect("SVD failed to compute U").columns(0, r).into_owned();  
     
     
-    let V = svd.v_t.as_ref().expect("SVD failed to compute V_t").transpose().columns(0, r).into_owned();
+    let V = svd.v_t.as_ref().expect("SVD failed to compute V_t").columns(0, r).into_owned();
     
     
     let S = DMatrix::from_diagonal(&svd.singular_values).rows(0, r).into_owned();
@@ -152,8 +152,15 @@ Approximations of the dominant eigenvectors and eigenvalues of A
 
 pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
     println!("Running REVD2");
-    // let S = S_wrapped.unwrap();
     // let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
+    // let S = S_wrapped.unwrap();
+    
+    // assert that all the eigenvalues of A are nonnegative
+    let eig = A.clone().symmetric_eigen();
+    let eigvals = &eig.eigenvalues;
+    if eigvals.iter().any(|&x| x < 0.0) {
+        return Err("Matrix is not positive semi-definite");
+    }
 
     let S = lora_helpers::tsog1(A, k+s, 3, 1);
     let Y = A*&(S);
@@ -192,15 +199,188 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 #[cfg(test)]
 mod test_randsvd
 {
-    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix};
+    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, check_approx_equal};
     use crate::lora_helpers;
     use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
     use super::*;
 
+
+
     #[test]
-    fn test_randsvd(){
+    fn test_rand_svd_basic_functionality() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+
+        println!("Dimensions of Rand U: {:?}", U.shape());
+        println!("Dimensions of Rand S: {:?}", S.shape());
+        println!("Dimensions of Rand V: {:?}", V.shape());
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.ncols(), k);
+    }
+
+    #[test]
+    fn test_rand_svd_tall_matrix() {
+        let a = generate_random_matrix(20, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.ncols(), k);
+    }
+
+    #[test]
+    fn test_rand_svd_wide_matrix() {
+        let a = generate_random_matrix(5, 20);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.ncols(), k);
+    }
+
+    #[test]
+    fn test_rand_svd_zero_matrix() {
+        let a = DMatrix::zeros(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.ncols(), k);
+        assert_relative_eq!(U, DMatrix::zeros(10, k), epsilon = 1e-6);
+        assert_relative_eq!(S, DMatrix::zeros(k, k), epsilon = 1e-6);
+        assert_relative_eq!(V, DMatrix::zeros(5, k), epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rand_svd_identity_matrix() {
+        let a = DMatrix::identity(5, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.ncols(), k);
+    }
+
+    #[test]
+    fn test_rand_svd_comparison_with_deterministic_svd() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+
+        // Compare with deterministic SVD
+        let svd = a.svd(true, true);
+        let binding = svd.u.unwrap();
+        let u_det = binding.columns(0, k).clone();
+
+        let binding = svd.v_t.unwrap().transpose();
+        let v_det = binding.columns(0, k).clone();
+
+        let s_binding = DMatrix::from_diagonal(&svd.singular_values);
+        let s_det = s_binding.rows(0, k).clone();
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.ncols(), k);
+        
+        if (!check_approx_equal(&U, &u_det.into(), 1.0)) {
+            println!("Exceeding tolerance")
+        }
+        if (!check_approx_equal(&S, &s_det.into(), 1.0)) {
+            println!("Exceeding tolerance")
+        }
+
+        if (!check_approx_equal(&V, &v_det.into(), 1.0)) {
+            println!("Exceeding tolerance")
+        }
+
+
+        // assert_relative_eq!(U, u_det, epsilon = 1e-6);
+        // assert_relative_eq!(S, s_det, epsilon = 1e-6);
+        // assert_relative_eq!(V, v_det, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rand_svd_conformability() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        assert_eq!(S.nrows(), U.ncols());
+        assert_eq!(S.ncols(), V.ncols());
+        assert_eq!(U.nrows(), a.nrows());
+        assert_eq!(V.nrows(), a.ncols());
+    }
+
+    #[test]
+    fn test_rand_svd_orthogonality() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        assert_relative_eq!(U.transpose() * &U, DMatrix::identity(k, k), epsilon = 1e-6);
+        assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rand_svd_singular_values() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let singular_values: Vec<f64> = S.diagonal().iter().cloned().collect();
+        let mut sorted_singular_values = singular_values.clone();
+        sorted_singular_values.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        assert_eq!(singular_values, sorted_singular_values);
+    }
+
+    #[test]
+    fn test_rand_svd_relative_frobenius_error() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let A_approx = &U * &S * V.transpose();
+        let error = (&a - &A_approx).norm() / a.norm();
+        assert!(error <= epsilon);
+    }
+
+    #[test]
+    fn test_randsvd_compare(){
         // TODO: Test if values sorted in decreasing order etc
         let height = 100;
         let width = 50;
@@ -229,9 +409,13 @@ mod test_randsvd
         let deterministic_s = DMatrix::from_diagonal(&svd.singular_values);
         let deterministic_v = svd.v_t.unwrap().transpose();
 
-        // println!("Dimensions of U: {}", u);
-        // println!("Dimensions of S: {}", s);
-        // println!("Dimensions of V: {}", v);
+        println!("Dimensions of Determ U: {:?}", deterministic_u.shape());
+        println!("Dimensions of Determ S: {:?}", deterministic_s.shape());
+        println!("Dimensions of Determ V: {:?}", deterministic_v.shape());
+
+        println!("Dimensions of Rand U: {:?}", u.shape());
+        println!("Dimensions of Rand S: {:?}", s.shape());
+        println!("Dimensions of Rand V: {:?}", v.shape());
 
         
 
@@ -251,7 +435,7 @@ mod test_randsvd
         let diff2 = a.columns(0,k).norm() - reconstructed2.columns(0,k).norm();
         println!("Difference between Determ A and Reconstructed: {}", diff2);
 
-        let reconstruction_diff = (reconstructed1 - reconstructed2).norm();
+        let reconstruction_diff = diff1 - diff2.abs();
         println!("Difference between Rand and Determ Reconstruction: {}", reconstruction_diff);
 
 

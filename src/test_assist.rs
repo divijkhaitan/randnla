@@ -32,3 +32,20 @@ pub fn generate_random_psd_matrix(n: usize) -> DMatrix<f64> {
     matrix = matrix * matrix_t; 
     matrix
 }
+
+pub fn check_approx_equal(a: &DMatrix<f64>, b: &DMatrix<f64>, tolerance: f64) -> bool {
+    if a.shape() != b.shape() {
+        return false;
+    }
+    
+    for i in 0..a.nrows() {
+        for j in 0..a.ncols() {
+            if (a[(i, j)] - b[(i, j)]).abs() > tolerance {
+                // println!("{}, {}, {}, {}", i, j, a[(i, j)], b[(i, j)]);
+                return false;
+            }
+        }
+    }
+    
+    true
+}
