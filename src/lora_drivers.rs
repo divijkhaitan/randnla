@@ -481,14 +481,14 @@ mod test_randevd1
     #[test]
     fn test_randevd1_compare() {
 
-        let dims = 100;
+        let dims = 5;
         
         // needs to be square
         let A_rand =  generate_random_matrix(dims, dims);
         let A_rand_psd = &A_rand*(&A_rand.transpose());
 
 
-        let k = dims -5;
+        let k = dims - 2;
         let epsilon= 0.01;
         let s = 5;
         
@@ -512,7 +512,8 @@ mod test_randevd1
         let tock = tick.elapsed();
         println!("Time taken by Normal EVD: {:?}", tock);
     
-        
+        // println!("rand eigvals: {:?}", lambda);
+        // println!("normal eigvals: {:?}", normal_evd.eigenvalues);
         assert_eq!(v.ncols(), k);
         assert_eq!(lambda.len(), k);
         

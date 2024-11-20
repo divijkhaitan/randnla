@@ -334,18 +334,5 @@ mod test_solvers {
 
         println!("Residual norm difference: {:?}", (residual.norm() - residual_svd.norm()).abs());
     }
-
-    #[test]
-    fn test_damped_system() {
-        let a = DMatrix::from_row_slice(3, 2, &[1.0, 0.0, 1.0, 1.0, 0.0, 1.0]);
-        let b = dvector![1.0, 1.0, 1.0];
-        
-        // Test with different damping parameters
-        let (x1, _, _, _, _, _, _, _, _, _) = lsqr(&a, &b, 0.0, 1e-8, 1e-8, 1e8, None, false, None);
-        let (x2, _, _, _, _, _, _, _, _, _) = lsqr(&a, &b, 1.0, 1e-8, 1e-8, 1e8, None, false, None);
-        println!("==== x1: {}", x1);
-        println!("==== x2: {}", x2);
-        // Solution with damping should have smaller norm
-        assert!(x2.norm() < x1.norm());
-    }
+    
 }

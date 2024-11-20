@@ -14,3 +14,4 @@ pub mod lora_helpers;
 pub mod reg_quad;
 pub mod cg_tests;
 pub mod test_assist;
+pub mod benchmarks;
