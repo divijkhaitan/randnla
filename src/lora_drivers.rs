@@ -16,28 +16,33 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
 /*
 A: m x n matrix
 The returned approximation will have rank at most k
+The approximation produced by the randomized phase of the
+algorithm will attempt to A to within eps error, but will not produce
+an approximation of rank greater than k + s.
  */
-pub fn rand_svd(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>)
-{
+pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
     println!("Running RSVD");
     
-    // TODO: check the positive and negative switching of the values compared to Python
-    let (Q,B) = lora_helpers::QB1(&A, k+s, epsilon);
-    let r = std::cmp::min(k, Q.ncols());
-    let mysvd_rand = B.clone().svd(true, true);
-    let U_binding = mysvd_rand.u.unwrap();
-    let U = U_binding.columns(0, r).clone();
+    
+    let (Q, B) = lora_helpers::QB1(A, k + s, epsilon);
+    let r = k.min(Q.ncols());
 
-    let V_binding = mysvd_rand.v_t.unwrap().transpose();
-    let V = V_binding.columns(0, r).clone();
+    
+    let svd = B.svd(true, true);
+    
+    
+    let U = svd.u.as_ref().expect("SVD failed to compute U").columns(0, r).into_owned();  
+    
+    
+    let V = svd.v_t.as_ref().expect("SVD failed to compute V_t").transpose().columns(0, r).into_owned();
+    
+    
+    let S = DMatrix::from_diagonal(&svd.singular_values).rows(0, r).into_owned();
 
-    let S_binding = DMatrix::from_diagonal(&mysvd_rand.singular_values);
-    let S = S_binding.rows(0, r).clone();
-    let U_final = Q*U;
-    return (U_final, S.into(), V.into());
-
+    let U_final = &Q * &U;
+    
+    (U_final, S, V)
 }
-
 
 // assert k > 0
 // assert k <= min(A.shape)
@@ -148,6 +153,7 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 #[cfg(test)]
 mod test_drivers
 {
+    use crate::test_assist::generate_random_matrix;
     use nalgebra::{DMatrix, DVector, dmatrix, dvector};
     use crate::lora_helpers;
     use crate::lora_drivers;
@@ -162,14 +168,13 @@ mod test_drivers
     #[test]
     fn test_randsvd(){
 
-        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        let dims = 10;
-        let a =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
+        let height = 100;
+        let width = 50;
+        let a =  generate_random_matrix(height, width);
 
-        let k = dims;
+        let k = width - 5;
         let epsilon= 0.01;
-        let s = 5;
+        let s = 0;
 
         let tick = Instant::now();
         let (u, s, v) = lora_drivers::rand_svd(&a, k, epsilon, s);
@@ -177,23 +182,44 @@ mod test_drivers
 
         println!("Time taken by RandSVD: {:?}", tock);
 
+        let call_a = a.clone();
         let tick = Instant::now();
-        let svd = a.svd(true, true);
+        let svd = call_a.svd(true, true);
         let tock = tick.elapsed();
         println!("Time taken by Deterministic SVD: {:?}", tock);
+
+        // TODO: why is the reconstruction error high here
 
 
         let deterministic_u = svd.u.unwrap();
         let deterministic_s = DMatrix::from_diagonal(&svd.singular_values);
         let deterministic_v = svd.v_t.unwrap().transpose();
 
+        // println!("Dimensions of U: {}", u);
+        // println!("Dimensions of S: {}", s);
+        // println!("Dimensions of V: {}", v);
 
-        let diff_u = (&u - &deterministic_u).norm();
-        let diff_s = (&s - &deterministic_s).norm();
-        let diff_v = (&v - &deterministic_v).norm();
-        println!("Difference between U: {}", diff_u);
-        println!("Difference between S: {}", diff_s);
-        println!("Difference between V: {}", diff_v);
+        
+
+        // reconstruct the matrix a from u s and v
+        let reconstructed1 = &u * &s * &v.transpose();
+        println!("Reconstructed Dimensions: {:?}", reconstructed1.shape());
+        println!("Original Dimensions: {:?}", a.shape());
+
+        let diff1 = a.norm() - reconstructed1.norm();
+        println!("Difference between A and Rand Reconstructed: {}", diff1);
+        
+
+        // take the first k columns of deterministic u s and v and then reconstruct
+
+
+        let reconstructed2 = &deterministic_u * &deterministic_s * &deterministic_v.transpose();
+        let diff2 = a.columns(0,k).norm() - reconstructed2.columns(0,k).norm();
+        println!("Difference between Determ A and Reconstructed: {}", diff2);
+
+        let reconstruction_diff = (reconstructed1 - reconstructed2).norm();
+        println!("Difference between Rand and Determ Reconstruction: {}", reconstruction_diff);
+
 
     }
 

@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+#![allow(warnings)]
+#![allow(unused_imports)]
+
 use nalgebra::{DMatrix, DVector};
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::cg;
