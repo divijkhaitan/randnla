@@ -91,16 +91,15 @@ pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 
 // ======================================================================================
 // Tall Sketch Operator Generator
-/*
-Input:
+
+/** Input:
 A is m × n, and k << min{m, n} is a positive integer
 num_passes controls the number of passes
 passes_per_stab controls the frequency of stabilizer computation (number of matmuls with A or A* before stabilizer is called)
 
 Output:
 S is n × k, intended for later use in computing Y = A
- */
-
+*/
 pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 ) -> DMatrix<f64> {
 
     let mut passes_done = 0;

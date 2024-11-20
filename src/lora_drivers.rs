@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(warnings)]
 #![allow(unused_imports)]
-use nalgebra::{DMatrix, dmatrix};
+use nalgebra::{DMatrix, dmatrix, DVector};
 use crate::sketch;
 use crate::lora_helpers;
 
@@ -13,12 +13,19 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
 
 
 // randomized SVD
-/*
+/**
+* Inputs:
 A: m x n matrix
 The returned approximation will have rank at most k
 The approximation produced by the randomized phase of the
 algorithm will attempt to A to within eps error, but will not produce
 an approximation of rank greater than k + s.
+* Output:
+The compact SVD of a low-rank approximation of A
+
+This algorithm uses randomization to compute a
+QB decomposition of A, then deterministically computes QB’s compact SVD, and
+finally truncates that SVD to a specified rank.
  */
 pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
     println!("Running RSVD");
@@ -65,23 +72,42 @@ pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<
 // V = Q @ U
 // return V, lamb
 
+
+
+
+/**
+Each randomized algorithm for low-rank SVD has a corresponding version that is
+specialized to Hermitian matrices. We recount those specialized algorithms here,
+and we mention an additional algorithm that is unique to the approximation of psd
+matrices. In general, we shall say that A is n × n and that the algorithms represent
+A_hat = V diag(λ)V∗, where V is a tall column-orthonormal matrix and λ is a vector
+with entries sorted in decreasing order of absolute value
+
+Input:
+A is an n × n Hermitian matrix. The returned approximation will
+have rank at most k. The approximation produced by the randomized
+phase of the algorithm will attempt to A to within eps error, but will
+not produce an approximation of rank greater than k + s.
+
+Output:
+Approximations of the dominant eigenvectors and eigenvalues of A.
+*/
+
 pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, Vec<f64>) {
 
-    /*
-    A is nxn Hermitian matrix
-     */
     println!("Running REVD1");
     assert!(A == &A.adjoint());
     
     let (Q, B) = lora_helpers::QB1(A, k + s, epsilon);
     
     let C = &B * &Q;
+
+    assert!(C == &Q.adjoint() * A * &Q);
     
     let eig = C.symmetric_eigen();
 
     let mut eigvals = eig.eigenvalues;
     let mut eigvecs = eig.eigenvectors;
-
 
 
     let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
@@ -110,13 +136,26 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
 }
 
 
+
+
     
 // only for positive semi-definite matrices
 // For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
+/** 
+ * Inputs: 
+ A is an n × n psd matrix. The returned approximation will have rank
+at most k, but the sketching operator used in the algorithm can have
+rank as high as k + s.
+* Output:
+Approximations of the dominant eigenvectors and eigenvalues of A
+*/
+
 pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
     println!("Running REVD2");
-    let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
-    let S = S_wrapped.unwrap();
+    // let S = S_wrapped.unwrap();
+    // let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
+
+    let S = lora_helpers::tsog1(A, k+s, 3, 1);
     let Y = A*&(S);
     let mach_eps = f64::EPSILON;
     let nu = (A.nrows() as f64).sqrt() * mach_eps * Y.norm();
@@ -125,7 +164,7 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 
     let chol = match SY.cholesky() {
         Some(c) => c,
-        None => return Err("My Cholesky Failed"),
+        None => return Err("Cholesky Decomposition Failed"),
     };
 
     // in the monograph, we need the upper triangular part but in nalgebra we get the lower triangular part, so we can't use it directly
@@ -138,36 +177,31 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
     let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
     let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
 
-    // find number of entries in lambda that are greater than nu
+    // we need the ones that are greater than nu
     let r = std::cmp::min(k, lambda.iter().filter(|&&x| x > nu).count());
     let lambda1 = lambda.iter().take(r).map(|x| x - nu).collect::<Vec<f64>>();
-    let V = V_binding.columns(0, r).clone();
-
-    let V_final = V.into();
+    let V_final = V_binding.columns(0, r).into_owned();
 
     return Ok((V_final, lambda1));
 }
 
 
 
+
+
 #[cfg(test)]
-mod test_drivers
+mod test_randsvd
 {
-    use crate::test_assist::generate_random_matrix;
-    use nalgebra::{DMatrix, DVector, dmatrix, dvector};
+    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix};
     use crate::lora_helpers;
     use crate::lora_drivers;
-    use rand_123::rng::ThreeFry2x64Rng;
-    use rand_core::{SeedableRng, RngCore};
-    use rand::Rng;
     use std::time::Instant;
-    use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-    use rand::distributions::DistIter;
+    use approx::assert_relative_eq;
+    use super::*;
 
-    
     #[test]
     fn test_randsvd(){
-
+        // TODO: Test if values sorted in decreasing order etc
         let height = 100;
         let width = 50;
         let a =  generate_random_matrix(height, width);
@@ -222,21 +256,79 @@ mod test_drivers
 
 
     }
+}
 
+
+
+
+#[cfg(test)]
+mod test_randevd1
+{
+    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix};
+    use crate::lora_helpers;
+    use crate::lora_drivers;
+    use std::time::Instant;
+    use approx::assert_relative_eq;
+    use super::*;
 
     #[test]
-    fn test_rand_evd1() {
-        let a = dmatrix![
-            2.0, -1.0, 0.0;
-            -1.0, 2.0, -1.0;
-            0.0, -1.0, 2.0
-        ];
+    fn test_rand_evd1_basic_functionality() {
+        let a = generate_random_hermitian_matrix(100);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
 
-        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        let dims = 10;
+        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_rand_evd1_large_hermitian_matrix() {
+        let a = generate_random_hermitian_matrix(100);
+        let k = 10;
+        let epsilon = 1e-6;
+        let s = 5;
+
+        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_rand_evd1_zero_matrix() {
+        let a = DMatrix::zeros(5, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+        let real_soln = a.symmetric_eigen();
+        assert_relative_eq!(V, real_soln.eigenvectors.columns(0, k).into_owned(), epsilon = 1e-6);
+        // assert_relative_eq!(V, DMatrix::zeros(5, k), epsilon = 1e-6);
+        assert!(lambda.iter().all(|&x| x == 0.0));
+    }
+
+    #[test]
+    fn test_rand_evd1_identity_matrix() {
+        let a = DMatrix::identity(5, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+    }
+    #[test]
+    fn test_randevd1_compare() {
+
+        let dims = 100;
         
-        let A_rand =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
+        // needs to be square
+        let A_rand =  generate_random_matrix(dims, dims);
         let A_rand_psd = &A_rand*(&A_rand.transpose());
 
 
@@ -276,28 +368,219 @@ mod test_drivers
         // println!("Normal Eigenvectors Flipped Sign: {}", trunc_flipped);
 
         println!("Norm difference between normal and randomized: {}", (&v - &trunc_flipped).norm());
+        assert_relative_eq!(v, trunc_flipped, epsilon = 2.0);
 
     }
 
+    #[test]
+    fn test_rand_evd1_conformability() {
+        let a = generate_random_hermitian_matrix(100);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        assert_eq!(lambda.len(), V.ncols());
+        assert_eq!(V.nrows(), a.nrows());
+    }
+
+    #[test]
+    fn test_rand_evd1_orthogonality() {
+        let a = generate_random_hermitian_matrix(100);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rand_evd1_eigenvalues() {
+        let a = generate_random_hermitian_matrix(100);
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
+        let mut sorted_lambda = abs_lambda.clone();
+        sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        assert_eq!(abs_lambda, sorted_lambda);
+    }
+
+    #[test]
+    fn test_rand_evd1_relative_frobenius_error() {
+        let a = generate_random_hermitian_matrix(100);
+        let k = 3;
+        let epsilon = 2.0;
+        let s = 2;
+
+        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let A_approx = &V * DMatrix::from_diagonal(&DVector::from_vec(lambda.clone())) * V.transpose();
+        let error = (&a - &A_approx).norm() / a.norm();
+        println!("Error: {}", error);
+        assert!(error <= epsilon);
+    }
+}
+
+
+
+#[cfg(test)]
+mod test_randevd2
+{
+    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, generate_random_psd_matrix};
+    use crate::lora_helpers;
+    use crate::lora_drivers;
+    use std::time::Instant;
+    use approx::assert_relative_eq;
+    use super::*;
+
+    #[test]
+    fn test_rand_evd2_basic_functionality() {
+        let a = generate_random_psd_matrix(5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_rand_evd2_large_psd_matrix() {
+        let a = generate_random_psd_matrix(100);
+        let k = 10;
+        let s = 5;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_rand_evd2_zero_matrix() {
+        let a = DMatrix::zeros(5, 5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rand_evd2_identity_matrix() {
+        let a = DMatrix::identity(5, 5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_rand_evd2_comparison_with_deterministic_evd() {
+        let a = generate_random_psd_matrix(5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+
+        // Compare with deterministic EVD
+        let eig = a.clone().symmetric_eigen();
+        let eigvals = eig.eigenvalues;
+        let eigvecs = eig.eigenvectors;
+
+        let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
+        let mut indices: Vec<usize> = abs_eigvals.iter().map(|&(_, i)| i).collect();
+        indices.sort_by(|&i, &j| abs_eigvals[j].0.partial_cmp(&abs_eigvals[i].0).unwrap());
+
+        let selected_indices = indices.iter().take(k);
+        let lambda_det: Vec<f64> = selected_indices.clone().map(|&i| eigvals[i]).collect();
+        let U_det = DMatrix::from_columns(&selected_indices.map(|&i| eigvecs.column(i)).collect::<Vec<_>>());
+
+        assert_eq!(V.ncols(), k);
+        assert_eq!(lambda.len(), k);
+        assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
+        assert_relative_eq!(DVector::from_vec(lambda), DVector::from_vec(lambda_det), epsilon = 1e-6);
+        assert_relative_eq!(&V * V.clone().transpose() * a.clone(), &U_det * U_det.clone().transpose() * &a, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rand_evd2_conformability() {
+        let a = generate_random_psd_matrix(5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        assert_eq!(lambda.len(), V.ncols());
+        assert_eq!(V.nrows(), a.nrows());
+    }
+
+    #[test]
+    fn test_rand_evd2_orthogonality() {
+        let a = generate_random_psd_matrix(5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_rand_evd2_eigenvalues() {
+        let a = generate_random_psd_matrix(5);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
+        let mut sorted_lambda = abs_lambda.clone();
+        sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        assert_eq!(abs_lambda, sorted_lambda);
+    }
+
+    #[test]
+    fn test_rand_evd2_relative_frobenius_error() {
+        let a = generate_random_psd_matrix(100);
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        let A_approx = &V * DMatrix::from_diagonal(&DVector::from_vec(lambda.clone())) * V.transpose();
+        let error = (&a - &A_approx).norm() / a.norm();
+        println!("Error: {}", error);
+        assert!(error <= 2.0);
+    }
 
 
     #[test]
     fn test_randEVD2(){
-        let A_psd = dmatrix![2.0, -1.0, 0.0;
-        -1.0, 2.0, -1.0;
-        0.0, -1.0, 2.0];
 
-        let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        let dims = 10;
+        let dims = 100;
         
-        let A_rand =  DMatrix::from_fn(dims, dims, |_i, _j| normal.sample(&mut rng_threefry));
-        let A_rand_psd = &A_rand*(&A_rand.transpose());
+        let A_rand_psd = generate_random_psd_matrix(dims);
 
-
-        let k = dims-5;
+        let k = 3;
         let epsilon= 0.01;
-        let s = 5;
+        let s = 0;
 
         let tick = Instant::now();
         let randevd2 = lora_drivers::rand_evd2(&A_rand_psd, k, s);
@@ -305,16 +588,8 @@ mod test_drivers
 
         println!("Time taken by RandEVD2: {:?}", tock);
 
-        let (v_rand, lambda_rand) = match randevd2 {
-            Ok((v, lambda)) => {
-                println!("OK");
-                (v, lambda)
-            },
-            Err(e) => {
-                println!("Error: {}", e);
-                return;
-            },
-        };
+        assert!(randevd2.is_ok());
+        let (v_rand, lambda_rand) = randevd2.unwrap();
 
         let tick = Instant::now();
         let normal_evd = A_rand_psd.symmetric_eigen();
@@ -329,8 +604,20 @@ mod test_drivers
         let diff_v = rand_v_norm - v_norm;
         println!("Difference between V's: {}", diff_v);
 
+        // find the reconstruction error between rand and deterministic after truncating the deterministic ka columns to the specified rank. Reconstruction error is the different between the original matrix A truncated and the reconstructed matrix from the eigvects and eigvals
+
+        // println!("V: {}", V);
+        // println!("V_Rand: {}", v_rand);
+        // println!("Lambda: {:?}", lambda);
+        // println!("Lambda_Rand: {:?}", lambda_rand);
+
+
+        let reconstructed_rand = &v_rand * DMatrix::from_diagonal(&DVector::from_vec(lambda_rand.clone())) * &v_rand.transpose();
+        let reconstructed_deterministic = &V * DMatrix::from_diagonal(&lambda) * &V.transpose();
+        let diff = (&reconstructed_rand - &reconstructed_deterministic).norm();
+        println!("Reconstruction Error: {}", diff);
+
     }
 
+    
 }
-
-
