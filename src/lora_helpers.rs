@@ -23,26 +23,28 @@ The conceptual goal of QB decomposition algorithms is to produce an approximatio
 min{k, rank(A)}. Our next three algorithms are different implementations of the
 QBDecomposer interface. The first two of these algorithms require an implementation of the RangeFinder interface. The ability of the implementation QB1 to control
 accuracy is completely dependent on that of the underlying rangefinder.
+
+
+Inputs:
+A is an m × n matrix and k << min{m, n} is a positive integer.
+eps is a target for the relative error ‖A − QB‖/‖A‖ measured in some
+unitarily-invariant norm. This parameter is passed directly to the
+RangeFinder, which determines its precise interpretation.
+
+
+Output:
+Q an m × d matrix returned by the underlying RangeFinder and
+B = Q∗A is d × n; we can be certain that d ≤ min{k, rank(A)}. The
+matrix QB is a low-rank approximation of A.
  */
 
-pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f64>) {
+ pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f64>) {
     let Q = RF1(A, k);
-    // println!("Q: \n{}", Q);
-    // println!("A: \n{}", A);
-    let B = Q.clone().transpose()*A;
-    return (Q, B);
+    let B = Q.transpose() * A;
+    return (Q, B)
 }
 
 
-
-
-// pub fn QB2(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f64>) {
-
-//     let mut q = DMatrix::from_element(m, k + s, 0.0);
-//     let mut b = DMatrix::from_element(k + s, n, 0.0);
-
-//     (q, b)
-// }
 
 
 // QB Decomposer
@@ -72,18 +74,13 @@ implementations are iterative and can accept a target accuracy as a third argume
 pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 
     // 2 and numbers for num_passes and passes_per_stab as advised in the monograph and other code
-    println!("Reached");
     let sketch_S = tsog1(A, k, 2, 1);
     let Y = A*&(sketch_S);
     let Q = Orth(&Y);
-    println!("Q TSOG: \n{} {}", Q.nrows(), Q.ncols());
-    
-    // let n = A.nrows();
-    // let sketch_S = sketch::sketching_operator(sketch::DistributionType::Gaussian, n, k);
-    
-    // let Y = A*&(sketch_S.unwrap());
-    let Q = Orth(&Y);
-    println!("Q TSOG: \n{} {}", Q.nrows(), Q.ncols());
+
+    // let sketch_S = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.ncols(), k).unwrap();
+    // let Y = A*&(sketch_S);
+    // let Q = Orth(&Y);
     return Q; 
 }
 
@@ -134,9 +131,7 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
     
     
     while diff >= 2 {
-        println!("Diff: {}", diff);
         S = A*&S1;
-        println!("Diff: {}", diff);
         passes_done += 1;
         if (passes_done % passes_per_stab == 0)
         {
@@ -311,13 +306,54 @@ mod test_other_helpers
     // ========= Range Finder Tests =========
     #[test]
     fn test_rf1_basic_functionality() {
-        let a = generate_random_matrix(10, 5);
+        let a = generate_random_matrix(100, 50);
         let k = 3;
 
         let Q = RF1(&a, k);
         assert_eq!(Q.ncols(), k);
     }
 
+    #[test]
+    fn test_rf1_accuracy() {
+        let a = generate_random_matrix(100, 50);
+        let k = 3;
+
+        let Q = RF1(&a, k);
+        let error = (a.clone() - (Q.clone() * (Q.transpose() * a.clone()))).norm();
+        assert!(error < a.norm());
+    }
+
+    // ========= Range Finder Tests =========
+
+
+    // ========= QB Tests =========
+
+    #[test]
+    fn test_qb1_basic_functionality() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1e-6;
+
+        let (Q, B) = QB1(&a, k, epsilon);
+        assert_eq!(Q.ncols(), k);
+        assert_eq!(B.nrows(), k);
+        assert_eq!(B.ncols(), a.ncols());
+    }
+
+    #[test]
+    fn test_qb1_accuracy_check() {
+        let a = generate_random_matrix(10, 5);
+        let k = 3;
+        let epsilon = 1.0;
+
+        let (Q, B) = QB1(&a, k, epsilon);
+        let approx = &Q * &B;
+        let error = (&a - &approx).norm() / a.norm();
+        assert!(error <= epsilon);
+    }
+
+
+    // ========= QB Tests =========
 
 
 
