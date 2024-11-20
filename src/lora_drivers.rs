@@ -13,6 +13,10 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
 
 
 // randomized SVD
+/*
+A: m x n matrix
+The returned approximation will have rank at most k
+ */
 pub fn rand_svd(A:&DMatrix<f64>, k:usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>)
 {
     println!("Running RSVD");
@@ -156,10 +160,7 @@ mod test_drivers
 
     
     #[test]
-    fn test_randSVD(){
-        let a = dmatrix![1.0, 2.0, 3.0;
-                    4.0, 5.0, 6.0;
-                    7.0, 8.0, 9.0];
+    fn test_randsvd(){
 
         let mut rng_threefry = ThreeFry2x64Rng::seed_from_u64(0);
         let normal = Normal::new(0.0, 1.0).unwrap();
