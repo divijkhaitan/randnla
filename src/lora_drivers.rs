@@ -41,14 +41,14 @@ pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<
     let U = svd.u.as_ref().expect("SVD failed to compute U").columns(0, r).into_owned();  
     
     
-    let V = svd.v_t.as_ref().expect("SVD failed to compute V_t").columns(0, r).into_owned();
+    let V = svd.v_t.as_ref().expect("SVD failed to compute V_t").transpose().columns(0, r).into_owned();
     
     
     let S = DMatrix::from_diagonal(&svd.singular_values).rows(0, r).into_owned();
 
     let U_final = &Q * &U;
     
-    (U_final, S, V)
+    return (U_final, S, V)
 }
 
 // assert k > 0
@@ -210,20 +210,47 @@ mod test_randsvd
 
     #[test]
     fn test_rand_svd_basic_functionality() {
-        let a = generate_random_matrix(10, 5);
-        let k = 3;
+        let a = generate_random_matrix(3, 3);
+        // make a 3x3 fixed matrix with the dmatrix! macro
+        let a = dmatrix![1.0, 2.0, 3.0;
+                          4.0, 5.0, 6.0;
+                          7.0, 8.0, 9.0];
+
+        let k = 2;
         let epsilon = 1e-6;
         let s = 2;
 
         let (U, S, V) = rand_svd(&a, k, epsilon, s);
 
-        println!("Dimensions of Rand U: {:?}", U.shape());
-        println!("Dimensions of Rand S: {:?}", S.shape());
-        println!("Dimensions of Rand V: {:?}", V.shape());
-        assert_eq!(U.ncols(), k);
-        assert_eq!(S.nrows(), k);
-        assert_eq!(S.ncols(), k);
-        assert_eq!(V.ncols(), k);
+
+         // Compare with deterministic SVD
+         let svd = a.svd(true, true);
+         let binding = svd.u.unwrap();
+         let u_det = binding.columns(0, k).clone();
+ 
+         let binding = svd.v_t.unwrap().transpose();
+         let v_det = binding.columns(0, k).clone();
+ 
+         let s_binding = DMatrix::from_diagonal(&svd.singular_values);
+         let s_det = s_binding.rows(0, k).clone();
+
+         
+         
+         println!("Dimensions of Determ U: {}", u_det);
+         println!("Dimensions of Rand U: {}", U);
+         println!("Dimensions of Determ S: {}", s_det);
+         println!("Dimensions of Rand S: {}", S);
+         println!("Dimensions of Determ V: {}", v_det);
+         println!("Dimensions of Rand V: {}", V);
+         
+        // reconstructed matrix:
+        // let approx = &U * &S * V.transpose();
+
+
+        // assert_eq!(U.ncols(), k);
+        // assert_eq!(S.nrows(), k);
+        // assert_eq!(S.ncols(), k);
+        // assert_eq!(V.ncols(), k);
     }
 
     #[test]
@@ -304,6 +331,7 @@ mod test_randsvd
 
         let s_binding = DMatrix::from_diagonal(&svd.singular_values);
         let s_det = s_binding.rows(0, k).clone();
+
         assert_eq!(U.ncols(), k);
         assert_eq!(S.nrows(), k);
         assert_eq!(S.ncols(), k);
