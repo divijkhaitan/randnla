@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use nalgebra::DMatrix;
 use rand::Rng;
 use std::time::Instant;

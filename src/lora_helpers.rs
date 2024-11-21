@@ -1,14 +1,5 @@
-#![allow(dead_code)]
-#![allow(warnings)]
-#![allow(unused_imports)]
-
-use nalgebra::{DMatrix, dmatrix, ColPivQR};
-use rand::Rng;
+use nalgebra::DMatrix;
 use crate::sketch;
-
-
-
-
 
 
 
@@ -17,28 +8,28 @@ use crate::sketch;
 
 
 
-/*
-
-The conceptual goal of QB decomposition algorithms is to produce an approximation ‖A − QB‖ ≤ eps (for some unitarily-invariant norm), where rank(QB) ≤
-min{k, rank(A)}. Our next three algorithms are different implementations of the
-QBDecomposer interface. The first two of these algorithms require an implementation of the RangeFinder interface. The ability of the implementation QB1 to control
-accuracy is completely dependent on that of the underlying rangefinder.
-
-
-Inputs:
+/**
+* Inputs:
 A is an m × n matrix and k << min{m, n} is a positive integer.
 eps is a target for the relative error ‖A − QB‖/‖A‖ measured in some
 unitarily-invariant norm. This parameter is passed directly to the
 RangeFinder, which determines its precise interpretation.
 
-
-Output:
+* Output:
 Q an m × d matrix returned by the underlying RangeFinder and
 B = Q∗A is d × n; we can be certain that d ≤ min{k, rank(A)}. The
 matrix QB is a low-rank approximation of A.
+
+The conceptual goal of QB decomposition algorithms is to produce an approximation ‖A − QB‖ ≤ eps (for some unitarily-invariant norm), where rank(QB) ≤
+min{k, rank(A)}. Our next three algorithms are different implementations of the
+QBDecomposer interface. The first two of these algorithms require an implementation of the RangeFinder interface. The ability of the implementation QB1 to control
+accuracy is completely dependent on that of the underlying rangefinder.
+(https://arxiv.org/pdf/2302.11474)
  */
 
  pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f64>) {
+    let _ = epsilon;
+    // we don't control the approximation error with this implementation of QB1, so epsilon is ignored
     let Q = RF1(A, k);
     let B = Q.transpose() * A;
     return (Q, B)
@@ -107,7 +98,7 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
     
     let mut S1: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = DMatrix::from_element(n, k, 0.0);
 
-    let mut S2: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = DMatrix::from_element(n, k, 0.0);
+    let mut _S2: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = DMatrix::from_element(n, k, 0.0);
 
     let mut S: nalgebra::Matrix<f64, nalgebra::Dyn, nalgebra::Dyn, nalgebra::VecStorage<f64, nalgebra::Dyn, nalgebra::Dyn>> = DMatrix::from_element(n, k, 0.0);
 
@@ -120,9 +111,9 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
 
         S1 = A.transpose()*S1;
         passes_done += 1;
-        if (passes_done % passes_per_stab == 0)
+        if passes_done % passes_per_stab == 0
         {
-            S2 = Stabilizer(&S1);
+            _S2 = Stabilizer(&S1);
         } 
     }
 
@@ -133,13 +124,13 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
     while diff >= 2 {
         S = A*&S1;
         passes_done += 1;
-        if (passes_done % passes_per_stab == 0)
+        if passes_done % passes_per_stab == 0
         {
             S = Stabilizer(&S);
         } 
         S = A.transpose()*S;
         passes_done += 1;
-        if (passes_done % passes_per_stab == 0)
+        if passes_done % passes_per_stab == 0
         {
             S = Stabilizer(&S);
         } 
@@ -211,18 +202,8 @@ mod test_other_helpers
 {
     use super::*;
     use crate::test_assist::generate_random_matrix;
-    use approx::assert_relative_eq;
-    use nalgebra::{DMatrix, DVector, dmatrix, dvector};
+    use nalgebra::DMatrix;
     use crate::lora_helpers;
-    use crate::lora_drivers;
-    use crate::sketch;
-    use rand::thread_rng;
-    use rand_core::{SeedableRng, RngCore};
-    use rand::Rng;
-    use std::os::unix::thread;
-    use std::time::Instant;
-    use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-    use rand::distributions::DistIter;
 
     // TODO: How to test/benchmark this for sketch quality??
     #[test]
@@ -369,17 +350,7 @@ mod test_lower_helpers
     use super::*;
     use crate::test_assist::generate_random_matrix;
     use approx::assert_relative_eq;
-    use nalgebra::{DMatrix, DVector, dmatrix, dvector};
-    use crate::lora_helpers;
-    use crate::lora_drivers;
-    use crate::sketch;
-    use rand::thread_rng;
-    use rand_core::{SeedableRng, RngCore};
-    use rand::Rng;
-    use std::os::unix::thread;
-    use std::time::Instant;
-    use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
-    use rand::distributions::DistIter;
+    use nalgebra::DMatrix;
 
 
     #[test]

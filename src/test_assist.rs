@@ -1,5 +1,5 @@
-use nalgebra::{DMatrix, DVector, dmatrix, dvector};
-use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};use rand::thread_rng;
+use nalgebra::DMatrix;
+use rand_distr::{Distribution, Normal};use rand::thread_rng;
 
 
 
