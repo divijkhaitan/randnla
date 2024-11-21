@@ -3,6 +3,8 @@ use crate::sketch::{sketching_operator, MatrixAttribute, DistributionType};
 use crate::lora_helpers;
 use crate::pivot_decompositions::economic_qrcp;
 
+// Note: Backslash is to be ignored in documentation comments, that's just to squash some cargo error
+
 // CUR
 /**
 Computes a CUR decomposition using ID of matrix  
@@ -17,8 +19,8 @@ u: k x k core matrix
 i: indices of selected rows  
 
 Computes CUR decomposition A ≈ CUR where:  
-C = A[:,j] (selected columns)  
-R = A[i,:] (selected rows)  
+C = A\[:,j] (selected columns)  
+R = A\[i,:\] (selected rows)  
 U connects C and R to form the approximation  
 
 * Error Handling  
@@ -43,7 +45,7 @@ pub fn cur(
         
         let i = i[0..k].to_vec();
         
-        // Compute U = X(A[I,:])^T
+        // Compute U = X(A\[I,:\])^T
         let a_rows = a.select_rows(&i);
         let u = x * a_rows.pseudo_inverse(0.0).unwrap();
         
@@ -60,7 +62,7 @@ pub fn cur(
         // Take first k indices
         let j = j[0..k].to_vec();
         
-        // Compute U = (A[:,J])^T Z
+        // Compute U = (A\[:,J])^T Z
         let a_cols = a.select_columns(&j);
         let a_pseudoinv = a_cols.pseudo_inverse(0.0).unwrap();
         let u = a_pseudoinv * z.transpose();
@@ -86,7 +88,7 @@ x: right interpolation matrix
 * Error Handling  
 Panics if given invalid value for k  
 
-Computes randomized two-sided interpolative decomposition A ≈ ZA[i,j]X  
+Computes randomized two-sided interpolative decomposition A ≈ ZA\[i,j]X  
 Uses sketching to accelerate the selection.  
 */
  pub fn two_sided_id_randomised(
@@ -115,7 +117,7 @@ x: right interpolation matrix
 * Error Handling  
 Panics if given invalid value for k  
 
-Computes two-sided interpolative decomposition A ≈ ZA[i,j]X  
+Computes two-sided interpolative decomposition A ≈ ZA\[i,j]X  
 Uses QRCP to select both columns and rows deterministically  
 First selects columns via one-sided ID, then rows from the selected columns  
 */
@@ -164,7 +166,7 @@ pub fn cur_randomised(
         
         let i = i[0..k].to_vec();
         
-        // Compute U = X(A[I,:])^T
+        // Compute U = X(A\[I,:\])^T
         let a_rows = a.select_rows(&i);
         let u = x * a_rows.pseudo_inverse(0.0).unwrap();
         
@@ -181,7 +183,7 @@ pub fn cur_randomised(
         // Take first k indices
         let j = j[0..k].to_vec();
         
-        // Compute U = (A[:,J])^T Z
+        // Compute U = (A\[:,J])^T Z
         let a_cols = a.select_columns(&j);
         let a_pseudoinv = a_cols.pseudo_inverse(0.0).unwrap();
         let u = a_pseudoinv * z.transpose();
@@ -207,8 +209,8 @@ j: indices of selected columns/rows
 Panics if given invalid value for k
 
 Computes randomized one-sided interpolative decomposition, Re-purposes ID of a skectch to speed up
-For columns: A ≈ A[:,j]X
-For rows: A ≈ XA[j,:]
+For columns: A ≈ A\[:,j]X
+For rows: A ≈ XA\[j,:\]
 
 */
 
@@ -262,8 +264,8 @@ j: indices of selected columns/rows
 Panics if given invalid value for k
 
 Computes one-sided interpolative decomposition via QRCP.
-For columns: A ≈ A[:,j]X
-For rows: A ≈ XA[j,:]
+For columns: A ≈ A\[:,j]X
+For rows: A ≈ X*A\[ j ,: ]
 
 */
 
