@@ -3,20 +3,20 @@ use std::error::Error;
 use crate::errors::RandNLAError;
 
 // Row Pivoted LU
-/*
+/**
 Performs LU decomposition with partial row pivoting.
 
-* Inputs:
-matrix: A square n x n matrix to decompose.
+* Inputs:  
+matrix: A square n x n matrix to decompose  
 
-* Output:
-A tuple (l, u, p) containing:
-l: A lower triangular matrix.
-u: An upper triangular matrix.
-p: A vector indicating the permutation of rows applied during pivoting.
+* Output:  
+A tuple (l, u, p) containing:  
+l: A lower triangular matrix  
+u: An upper triangular matrix  
+p: A vector indicating the permutation of rows applied during pivoting  
 
-This algorithm uses partial pivoting to preserve numerical stability during Gaussian elimination.
-Returns an error if the matrix is not square or if it is singular.
+This algorithm uses partial pivoting to preserve numerical stability during Gaussian elimination  
+Returns an error if the matrix is not square or if it is singular  
 */
 pub fn lupp(matrix: &DMatrix<f64>) -> Result<(DMatrix<f64>, DMatrix<f64>, Vec<usize>), Box <dyn Error>> {
     let n = matrix.nrows();
@@ -86,17 +86,17 @@ pub fn lupp(matrix: &DMatrix<f64>) -> Result<(DMatrix<f64>, DMatrix<f64>, Vec<us
 }
 
 // Column-Pivoted QR
-/*
-Performs QR decomposition with column pivoting.
+/**
+Performs QR decomposition with column pivoting  
 
-* Inputs:
-a: An m x n matrix to decompose.
+* Inputs:  
+a: An m x n matrix to decompose  
 
-* Output:
-A tuple (q, r, p) containing:
-q: An orthogonal matrix of size m x m.
-r: An upper triangular matrix of size m x n.
-p: A vector indicating the permutation of columns applied during pivoting.
+* Output:  
+A tuple (q, r, p) containing:  
+q: An orthogonal matrix of size m x m  
+r: An upper triangular matrix of size m x n  
+p: A vector indicating the permutation of columns applied during pivoting  
 
 This algorithm uses Householder reflections to compute the decomposition
 while preserving stability and ordering the diagonal entries of R to
@@ -176,17 +176,17 @@ pub fn qrcp(
 
 // Economic QR
 /**
-Performs an economic QR decomposition with column pivoting.
+Performs an economic QR decomposition with column pivoting  
 
 * Inputs:
-a: An m x n matrix to decompose.  
-k: The rank of the output approximation.
+a: An m x n matrix to decompose  
+k: The rank of the output approximation  
 
 * Output:
-A tuple (Q, R, P) containing:
-- Q: An orthogonal matrix of size m x k.
-- R: An upper triangular matrix of size k x n.
-- P: A vector indicating the permutation of columns applied during pivoting.
+A tuple (q, r, p) containing:  
+q: An orthogonal matrix of size m x k  
+r: An upper triangular matrix of size k x n  
+p: A vector indicating the permutation of columns applied during pivoting  
 
 This algorithm uses Householder reflections to compute the decomposition up to the specified rank k,
 which is faster and more efficient for certain applications while preserving stability.

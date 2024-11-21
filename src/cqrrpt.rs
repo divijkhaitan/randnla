@@ -3,25 +3,26 @@ use crate::sketch::{DistributionType, sketching_operator};
 use crate::pivot_decompositions::qrcp;
 
 // Sketch and Precondition for Cholesky QR with Column Pivoting  
-/*
+/**
+Computes a column pivoted QR factorisation by preconditioning and using CholeskyQR
 * Inputs:
-a: m x n matrix (m >> n).  
-d: integer between n and m 
+a: m x n matrix (m >> n)  
+d: integer between n and m  
 
-* Output:
-A tuple (q, r, p) containing:
-q: An orthogonal matrix of size m x m.
-r: An upper triangular matrix of size m x n.
-p: A vector indicating the permutation of columns applied during pivoting.
+* Output:  
+A tuple (q, r, p) containing:  
+q: An orthogonal matrix of size m x m  
+r: An upper triangular matrix of size m x n  
+p: A vector indicating the permutation of columns applied during pivoting  
 
-* Notes:
-- Can be used as a subroutine for HQRRP to extend to general matrices
-- Panics for matrices that are not tall and invalid values of d
+* Notes:  
+Can be used as a subroutine for HQRRP to extend to general matrices  
+Panics for matrices that are not tall and invalid values of d  
 
-Computes the QR Decomposition of a matrix using the cholesky QR 
-method. It computes the QR decomposition of a sketch of A, uses the triangular
-factor as a preconditioner and returns the upper trigangular factor from the 
-cholesky decomposition of (A_pre)*A_pre. 
+Computes the QR Decomposition of a matrix using the cholesky QR  
+method. It computes the QR decomposition of a sketch of A, uses the triangular  
+factor as a preconditioner and returns the upper trigangular factor from the  
+cholesky decomposition of (A_pre)*A_pre  
 */
 pub fn sap_chol_qrcp(a: &DMatrix<f64>, d: usize) -> (DMatrix<f64>, DMatrix<f64>, Vec<usize>) {
     let (m, n) = a.shape();

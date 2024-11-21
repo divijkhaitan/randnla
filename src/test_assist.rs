@@ -3,6 +3,7 @@ use rand_distr::{Distribution, Normal, Uniform, StandardNormal};
 use rand::{thread_rng, Rng};
 use crate::sketch::{sketching_operator, DistributionType};
 
+/// Generates a matrix of rank k of a given size using rank 1 updates
 pub fn rank_k_matrix(m: usize, n: usize, k: usize) -> DMatrix<f64> {
     assert!(k <= m.min(n), "k must be <= min(l,w)");
     
@@ -29,6 +30,7 @@ pub fn rank_k_matrix(m: usize, n: usize, k: usize) -> DMatrix<f64> {
     result
 }
 
+/// Generates a tall matrix with a large condition number of a given size
 pub fn generate_tall_ill_conditioned_matrix(m: usize, n: usize, condition_number: f64) -> DMatrix<f64> {
     assert!(m > n, "m must be greater than n for a tall matrix");
     
@@ -65,6 +67,7 @@ pub fn generate_tall_ill_conditioned_matrix(m: usize, n: usize, condition_number
     a
 }
 
+/// Generates a least squares problem of a given size
 pub fn generate_least_squares_problem(m:usize , n:usize, ill_conditioning:bool)  -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
     // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
     let mut rng = rand::thread_rng();
@@ -90,6 +93,7 @@ pub fn generate_least_squares_problem(m:usize , n:usize, ill_conditioning:bool) 
 }
 
 
+/// Returns the permutation matrix transposed from QRCP
 pub fn permutation_vector_to_transpose_matrix(perm: &[usize]) -> DMatrix<f64> {
     let n = perm.len();
     let mut perm_matrix = DMatrix::<f64>::zeros(n, n); // Initialize an n x n matrix with zeros
@@ -101,6 +105,7 @@ pub fn permutation_vector_to_transpose_matrix(perm: &[usize]) -> DMatrix<f64> {
     perm_matrix
 }
 
+/// Checks if the lower triangle of a matrix is zero within some tolerance
 pub fn check_upper_triangular(a: &DMatrix<f64>, tolerance: f64) -> bool {
     
     for i in 0..a.nrows() {
@@ -145,6 +150,7 @@ pub fn generate_random_psd_matrix(n: usize) -> DMatrix<f64> {
     matrix
 }
 
+/// Checks if two matrices are equal within some tolerance
 pub fn check_approx_equal(a: &DMatrix<f64>, b: &DMatrix<f64>, tolerance: f64) -> bool {
     if a.shape() != b.shape() {
         return false;

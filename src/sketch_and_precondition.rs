@@ -6,17 +6,17 @@ use std::error::Error;
 
 // Blendenpik Least Squares Solver
 /**
-Implements the Blendenpik algorithm for solving overdetermined linear systems.
+Implements the Blendenpik algorithm for solving overdetermined linear systems  
 
-* Inputs:
-a: An m x n matrix (must be overdetermined, i.e., m >= n).  
-b: An m x 1 matrix (the right-hand side of the system).  
-epsilon: Convergence tolerance for the Conjugate Gradient Least Squares (CGLS) solver.  
-l: Maximum number of iterations for the CGLS solver.  
-sampling_factor: A factor controlling the number of rows to sample during the sketching step.
+* Inputs:  
+a: An m x n matrix (must be overdetermined, i.e., m >= n)  
+b: An m x 1 matrix (the right-hand side of the system)  
+epsilon: Convergence tolerance for the iterative least squares solver  
+l: Maximum number of iterations for the iterative least squares solver  
+sampling_factor: A factor controlling the number of rows to sample during the sketching step  
 
 * Output:
-An approximate solution x to the least-squares problem argmin_x ||Ax - b||_2.
+An approximate solution x to the least-squares problem argmin_x ||Ax - b||_2  
 
 This algorithm computes the QR decomposition of a sketch of A, uses the 
 upper triangular factor of the sketch as a preconditioner and solves the 
@@ -65,8 +65,8 @@ Solves overdetermined linear systems using the LSRN algorithm.
 * Inputs:
 a: An m x n matrix (must be overdetermined, i.e., `m >= n`).  
 b: An m x 1 matrix (the right-hand side of the system).  
-epsilon: Convergence tolerance for the Conjugate Gradient Least Squares (CGLS) solver.  
-l: Maximum number of iterations for the CGLS solver.  
+epsilon: Convergence tolerance for the iterative least squares solver.  
+l: Maximum number of iterations for the iterative least squares solver.  
 sampling_factor: A factor controlling the number of rows to sample during the sketching step (must be ≥ 1).
 
 * Output:
@@ -79,7 +79,7 @@ This algorithm computes the SVD of a sketch of A, uses the orthogonal factors
 of the sketch as preconditioners and solves the system using CGLS. 
 */
 
-fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize, sampling_factor: f64) -> Result<DMatrix<f64>, Box<dyn Error>> {
+pub fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize, sampling_factor: f64) -> Result<DMatrix<f64>, Box<dyn Error>> {
     let m = a.nrows();
     let n = a.ncols();
     if m < n{
@@ -120,26 +120,26 @@ fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize,
 
 //Saddle Point Solver
 /**
-Preconditions and solves a saddle-point problem of the form argmin_x ||Ax - b||_2^2 + mu||x||_2^2 + 2<c, x> as well as it's dual. It converts any dual or primal saddle point problem into a primal saddle point problem with the last term eliminated, 
+Preconditions and solves a saddle-point problem of the form argmin_x ||Ax - b||_2^2 + mu||x||_2^2 + 2<c, x> as well as it's dual  
 
 * Inputs:
-a: m x n matrix (the primary coefficient matrix).  
-b: m x 1 matrix (The vector to minimise matrix product from).  
-c: n x 1 matrix (Inner product term).  
-mu: Regularization factor (must be ≥ 0).  
-epsilon: Convergence tolerance for the Conjugate Gradient Least Squares (CGLS) solver.  
-l: Maximum number of iterations for the CGLS solver.  
+a: m x n matrix (the primary coefficient matrix)  
+b: m x 1 matrix (The vector to minimise matrix product from)  
+c: n x 1 matrix (Inner product term)  
+mu: Regularization factor (must be ≥ 0)  
+epsilon: Convergence tolerance for the iterative least squares solver  
+l: Maximum number of iterations for the iterative least squares solver.  
 sampling_factor: Factor controlling the number of rows to sample during sketching (must be ≥ 1).  
 
-* Outputs:
-x: Solution to the primal saddle-point problem.  
-y: Solution to the dual saddle point problem
+* Outputs:  
+x: Solution to the primal saddle-point problem    
+y: Solution to the dual saddle point problem  
 
-* Error Handling:
-Returns an error if the input parameters are invalid or if the system is underdetermined (`m < n`).
+* Error Handling:  
+Returns an error if the input parameters are invalid or if the system is underdetermined (`m < n`).  
 
-* Notes:
-- Would likely be faster with SRFT instead of gaussian sketch
+* Notes:  
+Would likely be faster with SRFT instead of gaussian sketch  
 
 This algorithm computes an SVD of a sketch and modifies the singular values
 depending on the regularisation coefficient. Reduces the problem to a saddle 
@@ -147,7 +147,7 @@ point with c = 0 and then a regular least squares problem which is solved by
 CGLS.
 */
 
-fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMatrix<f64>, mu: f64, epsilon: f64, l: usize, sampling_factor: f64) -> Result<(DMatrix<f64>, DMatrix<f64>), Box<dyn Error>> {
+pub fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMatrix<f64>, mu: f64, epsilon: f64, l: usize, sampling_factor: f64) -> Result<(DMatrix<f64>, DMatrix<f64>), Box<dyn Error>> {
     let (m, n) = a.shape();
     if m < n{
         return Err(Box::new(RandNLAError::NotOverdetermined(

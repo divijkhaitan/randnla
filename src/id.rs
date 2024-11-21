@@ -3,29 +3,30 @@ use crate::sketch::{sketching_operator, MatrixAttribute, DistributionType};
 use crate::lora_helpers;
 use crate::pivot_decompositions::economic_qrcp;
 
-// Randomised CUR
-/*
-* Inputs:
-a: m x n matrix to decompose
-k: target rank of the decomposition, must be positive and <= min(m,n)
+// CUR
+/**
+Computes a CUR decomposition using ID of matrix  
+* Inputs:  
+a: m x n matrix to decompose  
+k: target rank of the decomposition, must be positive and <= min(m,n)  
 
-* Output:
-(j, u, i) where:
-j: indices of selected columns
-u: k x k core matrix
-i: indices of selected rows
+* Output:  
+(j, u, i) where:  
+j: indices of selected columns  
+u: k x k core matrix  
+i: indices of selected rows  
 
-Computes CUR decomposition A ≈ CUR where:
-C = A[:,j] (selected columns)
-R = A[i,:] (selected rows)
-U connects C and R to form the approximation
+Computes CUR decomposition A ≈ CUR where:  
+C = A[:,j] (selected columns)  
+R = A[i,:] (selected rows)  
+U connects C and R to form the approximation  
 
-* Error Handling
-- Panics if given invalid value for k
+* Error Handling  
+Panics if given invalid value for k  
 
-Uses QRCP-based one-sided ID to select columns and rows.
-If m >= n, first selects columns then rows.
-If m < n, first selects rows then columns.
+Uses QRCP-based one-sided ID to select columns and rows  
+If m >= n, first selects columns then rows  
+If m < n, first selects rows then columns  
  */
 pub fn cur(
     a: &DMatrix<f64>,
@@ -69,23 +70,24 @@ pub fn cur(
 }
 
 // Randomised Two Sided ID
-/*
-* Inputs:
-a: m x n matrix to decompose
-k: target rank of the decomposition, must be positive and <= min(m,n)
+/**
+Computes a Two Sided Interpolative decomposition using ID of sketched matrices
+* Inputs:  
+a: m x n matrix to decompose  
+k: target rank of the decomposition, must be positive and <= min(m,n)  
 
-* Output:
-(z, i, j, x) where:
-z: left interpolation matrix
-i: row indices selected
-j: column indices selected
-x: right interpolation matrix
+* Output:  
+(z, i, j, x) where:  
+z: left interpolation matrix  
+i: row indices selected  
+j: column indices selected  
+x: right interpolation matrix  
 
-* Error Handling
-- Panics if given invalid value for k
+* Error Handling  
+Panics if given invalid value for k  
 
-Computes randomized two-sided interpolative decomposition A ≈ ZA[i,j]X
-Uses sketching to accelerate the selection.
+Computes randomized two-sided interpolative decomposition A ≈ ZA[i,j]X  
+Uses sketching to accelerate the selection.  
 */
  pub fn two_sided_id_randomised(
     a: &DMatrix<f64>,
@@ -97,24 +99,25 @@ Uses sketching to accelerate the selection.
 }
 
 // Two Sided ID
-/*
-* Inputs:
+/**
+Computes a Two Sided Interpolative decomposition using ID of matrix
+* Inputs:  
 a: m x n matrix to decompose  
-k: target rank of the decomposition, must be positive and <= min(m,n)
+k: target rank of the decomposition, must be positive and <= min(m,n)  
 
-* Output:
-(z, i, j, x) where:
-z: left interpolation matrix
-i: row indices selected
+* Output:  
+(z, i, j, x) where:  
+z: left interpolation matrix  
+i: row indices selected  
 j: column indices selected  
-x: right interpolation matrix
+x: right interpolation matrix  
 
-* Error Handling
-- Panics if given invalid value for k
+* Error Handling  
+Panics if given invalid value for k  
 
-Computes two-sided interpolative decomposition A ≈ ZA[i,j]X
-Uses QRCP to select both columns and rows deterministically.
-First selects columns via one-sided ID, then rows from the selected columns.
+Computes two-sided interpolative decomposition A ≈ ZA[i,j]X  
+Uses QRCP to select both columns and rows deterministically  
+First selects columns via one-sided ID, then rows from the selected columns  
 */
 
 pub fn two_sided_id(
@@ -125,7 +128,8 @@ pub fn two_sided_id(
     let (z, i) = osid_qrcp(&a.select_columns(&j), k, MatrixAttribute::Row);
     (z, i, j, x)
 }
-/*
+/**
+Computes a CUR using ID of sketched matrices
 * Inputs:
 a: m x n matrix to decompose
 k: target rank of the decomposition, must be positive and <= min(m,n)
@@ -137,7 +141,7 @@ u: k x k core matrix
 i: indices of selected rows
 
 * Error Handling
-- Panics if given invalid value for k
+Panics if given invalid value for k
 
 Computes randomized CUR decomposition A ≈ CUR
 Uses sketching to accelerate selection.
@@ -187,7 +191,8 @@ pub fn cur_randomised(
 }
 
 // Randomised one sided ID
-/*
+/**
+Computes an ID by repurposing the ID of a sketch
 * Inputs:
 a: m x n matrix to decompose
 k: target rank of decomposition, must be positive and <= min(m,n)
@@ -199,7 +204,7 @@ x: interpolation matrix
 j: indices of selected columns/rows
 
 * Error Handling
-- Panics if given invalid value for k
+Panics if given invalid value for k
 
 Computes randomized one-sided interpolative decomposition, Re-purposes ID of a skectch to speed up
 For columns: A ≈ A[:,j]X
@@ -241,7 +246,8 @@ pub fn osid_randomised(
     }
 }
 
-/*
+/**
+Computes an ID using QRCP
 * Inputs:
 y: m x n matrix to decompose
 k: target rank of decomposition, must be positive and <= min(m,n)
@@ -253,7 +259,7 @@ x: interpolation matrix
 j: indices of selected columns/rows
 
 * Error Handling
-- Panics if given invalid value for k
+Panics if given invalid value for k
 
 Computes one-sided interpolative decomposition via QRCP.
 For columns: A ≈ A[:,j]X
