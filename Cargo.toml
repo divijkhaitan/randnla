@@ -10,6 +10,8 @@ nalgebra = "0.33.0"
 rand_distr = "0.4.3"
 num-traits = "0.2.19"
 rand_123 = { path = "./rust-random123" }
+criterion = "0.4"
+plotters = "0.3"
 
 [lib]
 path = "src/lib.rs"
