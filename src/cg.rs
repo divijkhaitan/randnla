@@ -1,46 +1,61 @@
 use nalgebra::{DMatrix, DVector};
-
-
-
+use crate::errors::RandNLAError;
 
 /**
- * Input: Matrix A, a vector b, a tolerance value, a maximum number of iterations, and an optional initial guess x.
- * Output: The solution to the linear system Ax = b, or an error message if the method fails to converge.
+* Inputs:
+`a` is an `m x n` matrix,
+`b` is an `m x 1` vector,
+`x` is an `n x 1` initial guess vector,
+`tolerance` is the tolerance value,
+`num_iterations` is the maximum number of iterations
+
+* Output:
+The solution vector `x` that approximates the solution to the system Ax = b
+
+This function uses the CGLS method to iteratively solve the system of linear equations. The method converges when the residual norm is below a specified tolerance or after a maximum number of iterations.
  */
+
 pub fn cgls(
     a: &DMatrix<f64>,
     b: &DMatrix<f64>,
     tolerance: f64,
     num_iterations: usize,
     x: Option<DMatrix<f64>>,
-) -> DMatrix<f64> {
-    // let m = a.nrows();
+) ->  DMatrix<f64> {
+    let m = a.nrows();
     let n = a.ncols();
+
+    // Initial guess
+    let mut x = x.unwrap_or_else(|| DMatrix::from_element(1, n , 0.0 as f64));
     
-    let mut x = x.unwrap_or_else(|| DMatrix::from_element(1, n, 0.0 as f64)); // Initial guess is zero
-    let mut r = b - a * &x;              // Initial residual r = b - A * x
-    let s = a.transpose() * &r;      // s = A^T * r
-    let mut p = s.clone();               // Initial search direction
-    let mut norm_s = s.dot(&s);          // Residual norm squared
+    // Initial residual r = b - A * x
+    println!("Reached here");
+    println!("{:?}", a);
+    println!("{:?}", x);
+    println!("{:?}", b);
+    let mut r = b - a * &x;              
+    let s = a.transpose() * &r;
+    let mut p = s.clone();
+    let mut norm_s = s.dot(&s);
     let mut converged = false;
     for i in 0..num_iterations {
-        let ap = a * &p;                     // A * p
-        let alpha = norm_s / ap.dot(&ap);    // Step size alpha
-        x += alpha * &p;                     // Update solution x
-        r -= alpha * ap;                     // Update residual r
-        let s_new = a.transpose() * &r;      // s_new = A^T * r
-        let norm_s_new = s_new.dot(&s_new);  // New residual norm squared
+        let ap = a * &p;
+        let alpha = norm_s / ap.dot(&ap);
+        x += alpha * &p;
+        r -= alpha * ap;
+        let s_new = a.transpose() * &r;
+        let norm_s_new = s_new.dot(&s_new);
 
-        // Convergence check based on tolerance
+        // check based on tolerance
         if norm_s_new.sqrt() < tolerance {
             println!("CGLS converged after {} iterations", i + 1);
             converged = true;
             break;
         }
 
-        let beta = norm_s_new / norm_s;      // Compute beta for next direction
+        let beta = norm_s_new / norm_s;
         norm_s = norm_s_new;
-        p = &s_new + beta * p;               // Update search direction
+        p = &s_new + beta * p;
     }
     if !converged
     {
@@ -49,7 +64,30 @@ pub fn cgls(
     x
 }
 
-pub fn conjugate_grad(a: &DMatrix<f64>, b: &DVector<f64>, x: Option<DVector<f64>>) -> DVector<f64> {
+
+/**
+Conjugate Gradient method for solving a system of linear equations Ax = b
+
+* Inputs:
+`a` is an `n x n` symmetric positive-definite matrix,
+`b` is an `n x 1` vector,
+`x` is an `n x 1` initial guess vector
+
+* Output:
+The solution vector `x` that approximates the solution to the system Ax = b
+ */
+
+
+pub fn conjugate_grad(a: &DMatrix<f64>, b: &DVector<f64>, x: Option<DVector<f64>>) -> Result<DVector<f64>, RandNLAError> {
+
+    // Check positive semi-definite
+    let eig = a.clone().symmetric_eigen();
+    let eigvals = &eig.eigenvalues;
+    if eigvals.iter().any(|&x| x < 0.0) {
+        return Err(RandNLAError::NotPositiveSemiDefinite(
+            "Matrix is not positive semi-definite".to_string()
+        ));
+    }
     let n = b.len();
     let mut x = x.unwrap_or_else(|| DVector::from_element(n, 1.0));
     let mut r = a * &x - b;
@@ -73,8 +111,10 @@ pub fn conjugate_grad(a: &DMatrix<f64>, b: &DVector<f64>, x: Option<DVector<f64>
         p = beta * p - &r;
     }
 
-    x
+    Ok(x)
 }
+
+
 
 pub fn verify_solution(a: &DMatrix<f64>, b: &DVector<f64>, x: &DVector<f64>) -> f64 {
     (a * x - b).norm()
@@ -89,6 +129,8 @@ mod test_conjugate_gradient {
 
     #![allow(unused_imports)]
     use super::*;
+    use approx::assert_relative_eq;
+    use crate::test_assist::{self, generate_random_matrix};
 
     #[test]
     fn test_conjugate_gradient() {
@@ -96,7 +138,10 @@ mod test_conjugate_gradient {
         let b = DVector::from_row_slice(&[1.0, 2.0, 3.0]);
         let x = DVector::from_row_slice(&[1.0, 1.0, 1.0]);
         let x_cg = conjugate_grad(&a, &b, Some(x));
-        let error = verify_solution(&a, &b, &x_cg);
+        assert!(x_cg.is_ok());
+        let error = verify_solution(&a, &b, &x_cg.unwrap());
         assert!(error < 1e-10);
     }
+
+    
 }

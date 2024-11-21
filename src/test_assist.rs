@@ -32,7 +32,7 @@ pub fn generate_random_psd_matrix(n: usize) -> DMatrix<f64> {
     matrix = matrix * matrix_t; 
     matrix
 }
-
+/// Checks if two matrices are approximately equal
 pub fn check_approx_equal(a: &DMatrix<f64>, b: &DMatrix<f64>, tolerance: f64) -> bool {
     if a.shape() != b.shape() {
         return false;

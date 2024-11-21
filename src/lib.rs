@@ -16,6 +16,5 @@ pub mod id;
 pub mod cqrrpt;
 pub mod lora_drivers;
 pub mod lora_helpers;
-pub mod cg_tests;
 pub mod test_assist;
-pub mod benchmarks;
+// pub mod benchmarks;
