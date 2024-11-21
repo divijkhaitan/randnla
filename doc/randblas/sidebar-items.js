@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["benchmarks","cg","cg_tests","cqrrpt","errors","id","lora_drivers","lora_helpers","pivot_decompositions","sketch","sketch_and_precondition","sketch_and_solve","solvers","test_assist"]};

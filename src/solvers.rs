@@ -78,6 +78,13 @@ fn sym_ortho(a: f64, b: f64) -> (f64, f64, f64) {
     }
 }
 
+
+
+
+/**
+Find the least-squares solution to a large, sparse, linear system of equations
+Translated from <https://github.com/scipy/scipy/blob/v1.14.1/scipy/sparse/linalg/_isolve/lsqr.py#L96-L587>
+ */
 pub fn lsqr(
     a: &DMatrix<f64>,
     b: &DVector<f64>,

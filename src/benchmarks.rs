@@ -17,7 +17,6 @@ use crate::id;
 use crate::cqrrpt;
 use crate::lora_drivers::{rand_svd, rand_evd1, rand_evd2};
 use crate::lora_helpers;
-use crate::reg_quad;
 use crate::cg_tests;
 use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, generate_random_psd_matrix, check_approx_equal};
 

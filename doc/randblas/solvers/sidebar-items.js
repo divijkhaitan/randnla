@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["lsqr","solve_diagonal_system","solve_upper_triangular_system"]};
