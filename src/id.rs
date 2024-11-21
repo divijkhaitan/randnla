@@ -110,7 +110,7 @@ pub fn osid_randomised(
 ) -> (DMatrix<f64>, Vec<usize>) {
     let (m, n) = a.shape();
     assert!(k > 0, "k must be positive)");
-    assert!(k <= m.min(n), "k must be less than min(m,n)");
+    assert!(k <= m.min(n), "k must be <= min(l,w)");
     
     match attr {
         MatrixAttribute::Row => {
@@ -143,6 +143,7 @@ pub fn osid_qrcp(
     attr: MatrixAttribute,
 ) -> (DMatrix<f64>, Vec<usize>) {
     let (l, w) = y.shape();
+    assert!(k > 0, "k must be positive)");
     assert!(k <= l.min(w), "k must be <= min(l,w)");
 
     match attr {
@@ -188,12 +189,14 @@ pub fn osid_qrcp(
 mod tests {
     use crate::{id::{two_sided_id, two_sided_id_randomised}, sketch::MatrixAttribute};
     use nalgebra::DMatrix;
-    use super::{osid_qrcp, cur, cur_randomised};
+    use crate::sketch::{DistributionType, sketching_operator};
+    use super::{cur, cur_randomised, osid_qrcp, osid_randomised};
     use rand::{Rng, thread_rng};
     use rand_distr::{Distribution, StandardNormal};
     use std::time::Instant;
+    
     fn rank_k_matrix(m: usize, n: usize, k: usize) -> DMatrix<f64> {
-        assert!(k <= m.min(n), "k must be <= min(m,n)");
+        assert!(k <= m.min(n), "k must be <= min(l,w)");
         
         let mut rng = thread_rng();
         let normal = StandardNormal;
@@ -218,6 +221,141 @@ mod tests {
         result
     }
     
+    #[test]
+    #[should_panic(expected = "k must be positive")] // Optional: specify panic message
+    fn test_osid_zero_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = 0;
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        osid_qrcp(&data, d, MatrixAttribute::Column);
+    }
+    
+    #[test]
+    #[should_panic(expected = "k must be positive")] // Optional: specify panic message
+    fn test_osid_randomised_zero_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = 0;
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        osid_randomised(&data, d, MatrixAttribute::Column);
+    }
+    #[test]
+    #[should_panic(expected = "k must be positive")] // Optional: specify panic message
+    fn test_cur_zero_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = 0;
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        cur(&data, d);
+    }
+    
+    #[test]
+    #[should_panic(expected = "k must be positive")] // Optional: specify panic message
+    fn test_cur_randomised_zero_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = 0;
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        cur_randomised(&data, d);
+    }
+    #[test]
+    #[should_panic]
+    fn test_two_sided_id_zero_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = 0;
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        two_sided_id(&data, d);
+    }
+    #[test]
+    #[should_panic(expected = "k must be positive")] // Optional: specify panic message
+    fn test_two_sided_id_randomised_zero_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = 0;
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        two_sided_id_randomised(&data, d);
+    }
+    #[test]
+    #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
+    fn test_osid_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range((n+1)..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        osid_qrcp(&data, d, MatrixAttribute::Column);
+    }
+    
+    #[test]
+    #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
+    fn test_osid_randomised_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range((n+1)..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        osid_randomised(&data, d, MatrixAttribute::Column);
+    }
+    #[test]
+    #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
+    fn test_cur_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range((n+1)..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        cur(&data, d);
+    }
+    #[test]
+    #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
+    fn test_cur_randomised_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range((n+1)..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        cur_randomised(&data, d);
+    }
+    #[test]
+    #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
+    fn test_two_sided_id_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range((n+1)..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        two_sided_id(&data, d);
+    }
+    #[test]
+    #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
+    fn test_two_sided_id_randomised_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range((n+1)..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        two_sided_id_randomised(&data, d);
+    }
     #[test]
     fn test_one_sided_id()
     {

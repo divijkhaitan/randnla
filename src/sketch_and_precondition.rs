@@ -12,6 +12,21 @@ pub fn blendenpik_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, 
             format!("Need more columns than rows, found {} rows and {} columns", a.nrows(), a.ncols())
         )));
     }
+    if sampling_factor < 1.0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Sampling factor must be greater than 1, current input is {}", sampling_factor)
+            )))
+    }
+    if epsilon <= 0.0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Epsilon must be positive, current input is {}", sampling_factor)
+            )))
+    }
+    if l == 0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Number of iterations must be positive, current input is {}", sampling_factor)
+            )))
+    }
     let d = if sampling_factor*(n as f64) > m as f64 {m} else {(sampling_factor*(n as f64)).floor() as usize};
     let s = sketching_operator(DistributionType::Gaussian, d, m).unwrap();
     let a_sk = &s*a;
@@ -31,6 +46,21 @@ fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize,
         return Err(Box::new(RandNLAError::NotOverdetermined(
             format!("Need more columns than rows, found {} rows and {} columns", a.nrows(), a.ncols())
         )));
+    }
+    if sampling_factor < 1.0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Sampling factor must be greater than 1, current input is {}", sampling_factor)
+            )))
+    }
+    if epsilon <= 0.0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Epsilon must be positive, current input is {}", sampling_factor)
+            )))
+    }
+    if l == 0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Number of iterations must be positive, current input is {}", sampling_factor)
+            )))
     }
     let d = if sampling_factor*(n as f64) > m as f64 {m} else {(sampling_factor*(n as f64)).floor() as usize};
     let s = sketching_operator(DistributionType::Gaussian, d, m).unwrap();
@@ -54,6 +84,21 @@ fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMat
         return Err(Box::new(RandNLAError::NotOverdetermined(
             format!("Need more columns than rows, found {} rows and {} columns", a.nrows(), a.ncols())
         )));
+    }
+    if sampling_factor < 1.0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Sampling factor must be greater than 1, current input is {}", sampling_factor)
+            )))
+    }
+    if epsilon <= 0.0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Epsilon must be positive, current input is {}", sampling_factor)
+            )))
+    }
+    if l == 0{
+        return Err(Box::new(RandNLAError::InvalidParameters(
+            format!("Number of iterations must be positive, current input is {}", sampling_factor)
+            )))
     }
     let d = ((sampling_factor * n as f64).floor() as usize).max(1).min(m);
     let s = sketching_operator(DistributionType::Gaussian, d, m).unwrap();
@@ -200,6 +245,18 @@ mod tests
         let residual_actual = &data*actual_solution - &y;
         let residual_iterative = &data*iterative_solution - &y;
         
+        let x = blendenpik_overdetermined(&data, &y, 0.0001, 1000, 0.5);
+        assert!(x.is_err());
+        
+        let x = blendenpik_overdetermined(&data, &y, -0.0001, 1000, 1.5);
+        assert!(x.is_err());
+        
+        let x = blendenpik_overdetermined(&data, &y, 0.0, 1000, 1.5);
+        assert!(x.is_err());
+        
+        let x = blendenpik_overdetermined(&data, &y, 0.0001, 0, 0.5);
+        assert!(x.is_err());
+        
         println!("Least Squares Blendenpik test");
         // println!("Hypothesis residual: {}, Actual Residual: {}", (residual_hypothesis).norm(), (residual_actual).norm());
         // println!("Sketched residual: {}, Iterative Residual: {}", (residual_sketch).norm(), (residual_iterative).norm());
@@ -251,6 +308,19 @@ mod tests
         let norm_iterative = (&data*&iterative_solution).norm().powf(2.0) + mu*iterative_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&iterative_solution));
         let norm_actual = (&data*&actual_solution).norm().powf(2.0) + mu*actual_solution.norm().powf(2.0) + 2.0*(c.columns(0, 1).dot(&actual_solution));
         
+        let x = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 1000, 0.5);
+        assert!(x.is_err());
+        
+        let x = sketch_saddle_point_precondition(&data, &y, &c, mu, -0.0001, 1000, 1.5);
+        assert!(x.is_err());
+        
+        let x = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0, 1000, 1.5);
+        assert!(x.is_err());
+        
+        let x = sketch_saddle_point_precondition(&data, &y, &c, mu, 0.0001, 0, 1.5);
+        assert!(x.is_err());
+        
+
         println!("Least Squares Saddle Point test");
         println!("Actual Residual: {}, Sketched residual: {}, Iterative Residual: {}", norm_actual, norm_sketch, norm_iterative);
         println!("Times: (Actual, Sketched, Iterative): {:.2?} {:.2?} {:.2?}", duration_deterministic, duration_randomised, duration_iterative);
@@ -287,6 +357,18 @@ mod tests
         let residual_sketch = &data*x - &y;
         let residual_actual = &data*actual_solution - &y;
         let residual_iterative = &data*iterative_solution - &y;
+        
+        let x = lsrn_overdetermined(&data, &y, 0.0001, 1000, 0.5);
+        assert!(x.is_err());
+        
+        let x = lsrn_overdetermined(&data, &y, -0.0001, 1000, 1.5);
+        assert!(x.is_err());
+        
+        let x = lsrn_overdetermined(&data, &y, 0.0, 1000, 1.5);
+        assert!(x.is_err());
+        
+        let x = lsrn_overdetermined(&data, &y, 0.0001, 0, 0.5);
+        assert!(x.is_err());
         
         println!("Least Squares LSRN test");
         println!("Hypothesis residual: {}, Actual Residual: {}", (residual_hypothesis).norm(), (residual_actual).norm());

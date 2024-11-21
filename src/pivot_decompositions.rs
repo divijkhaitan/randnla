@@ -332,4 +332,14 @@ mod tests
         assert!(check_upper_triangular(&r_cp.select_rows(&indices), 1e-4));
         assert!(check_approx_equal(&qtq,  &DMatrix::identity(q_cp.ncols(), q_cp.ncols()), 1e-4));
     }
+
+    #[test]
+    #[should_panic]
+    fn test_qrcp_economical_bad_input(){
+        let n = rand::thread_rng().gen_range(10..30);
+        let m = rand::thread_rng().gen_range(n..500);
+        let data = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
+        
+        economic_qrcp(&data, 0);
+    }
 }

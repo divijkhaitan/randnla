@@ -127,5 +127,27 @@ mod tests
         assert!(check_approx_equal(&reconstruct, &reconstructed, 1e-4));
 
     }
+    #[test]
+    #[should_panic(expected = "d must satisfy n ≤ d ≪ m")] // Optional: specify panic message
+    fn test_cqrrpt_wrong_d()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range(0..n);
+        
+        let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
+        sap_chol_qrcp(&data, d);
+    }
     
+    #[test]
+    #[should_panic(expected = "d must satisfy n ≤ d ≪ m")] // Optional: specify panic message
+    fn test_cqrrpt_wide_matrix()
+    {
+        let n = 10;
+        let m = 100;
+        let d = rand::thread_rng().gen_range(n..m);
+        
+        let data = sketching_operator(DistributionType::Uniform, n, m).unwrap();
+        sap_chol_qrcp(&data, d);
+    }
 }
