@@ -3,6 +3,30 @@ use crate::sketch::{sketching_operator, MatrixAttribute, DistributionType};
 use crate::lora_helpers;
 use crate::pivot_decompositions::economic_qrcp;
 
+// Randomised CUR
+/*
+* Inputs:
+a: m x n matrix to decompose
+k: target rank of the decomposition, must be positive and <= min(m,n)
+
+* Output:
+(j, u, i) where:
+j: indices of selected columns
+u: k x k core matrix
+i: indices of selected rows
+
+Computes CUR decomposition A ≈ CUR where:
+C = A[:,j] (selected columns)
+R = A[i,:] (selected rows)
+U connects C and R to form the approximation
+
+* Error Handling
+- Panics if given invalid value for k
+
+Uses QRCP-based one-sided ID to select columns and rows.
+If m >= n, first selects columns then rows.
+If m < n, first selects rows then columns.
+ */
 pub fn cur(
     a: &DMatrix<f64>,
     k: usize
@@ -44,7 +68,26 @@ pub fn cur(
     }
 }
 
-pub fn two_sided_id_randomised(
+// Randomised Two Sided ID
+/*
+* Inputs:
+a: m x n matrix to decompose
+k: target rank of the decomposition, must be positive and <= min(m,n)
+
+* Output:
+(z, i, j, x) where:
+z: left interpolation matrix
+i: row indices selected
+j: column indices selected
+x: right interpolation matrix
+
+* Error Handling
+- Panics if given invalid value for k
+
+Computes randomized two-sided interpolative decomposition A ≈ ZA[i,j]X
+Uses sketching to accelerate the selection.
+*/
+ pub fn two_sided_id_randomised(
     a: &DMatrix<f64>,
     k: usize,
 ) -> (DMatrix<f64>, Vec<usize>, Vec<usize>, DMatrix<f64>) {
@@ -52,6 +95,27 @@ pub fn two_sided_id_randomised(
     let (z, i) = osid_randomised(&a.select_columns(&j), k, MatrixAttribute::Row);
     (z, i, j, x)
 }
+
+// Two Sided ID
+/*
+* Inputs:
+a: m x n matrix to decompose  
+k: target rank of the decomposition, must be positive and <= min(m,n)
+
+* Output:
+(z, i, j, x) where:
+z: left interpolation matrix
+i: row indices selected
+j: column indices selected  
+x: right interpolation matrix
+
+* Error Handling
+- Panics if given invalid value for k
+
+Computes two-sided interpolative decomposition A ≈ ZA[i,j]X
+Uses QRCP to select both columns and rows deterministically.
+First selects columns via one-sided ID, then rows from the selected columns.
+*/
 
 pub fn two_sided_id(
     a: &DMatrix<f64>,
@@ -61,6 +125,25 @@ pub fn two_sided_id(
     let (z, i) = osid_qrcp(&a.select_columns(&j), k, MatrixAttribute::Row);
     (z, i, j, x)
 }
+/*
+* Inputs:
+a: m x n matrix to decompose
+k: target rank of the decomposition, must be positive and <= min(m,n)
+
+* Output:
+(j, u, i) where:
+j: indices of selected columns
+u: k x k core matrix  
+i: indices of selected rows
+
+* Error Handling
+- Panics if given invalid value for k
+
+Computes randomized CUR decomposition A ≈ CUR
+Uses sketching to accelerate selection.
+If m >= n, first selects columns randomly then rows deterministically.
+If m < n, first selects rows randomly then columns deterministically.
+*/
 
 pub fn cur_randomised(
     a: &DMatrix<f64>,
@@ -103,6 +186,27 @@ pub fn cur_randomised(
     }
 }
 
+// Randomised one sided ID
+/*
+* Inputs:
+a: m x n matrix to decompose
+k: target rank of decomposition, must be positive and <= min(m,n)
+attr: whether to select rows or columns
+
+* Output:
+(x, j) where:
+x: interpolation matrix
+j: indices of selected columns/rows
+
+* Error Handling
+- Panics if given invalid value for k
+
+Computes randomized one-sided interpolative decomposition, Re-purposes ID of a skectch to speed up
+For columns: A ≈ A[:,j]X
+For rows: A ≈ XA[j,:]
+
+*/
+
 pub fn osid_randomised(
     a: &DMatrix<f64>,
     k: usize,
@@ -136,6 +240,26 @@ pub fn osid_randomised(
         }
     }
 }
+
+/*
+* Inputs:
+y: m x n matrix to decompose
+k: target rank of decomposition, must be positive and <= min(m,n)
+attr: whether to select rows or columns
+
+* Output:
+(x, j) where:
+x: interpolation matrix
+j: indices of selected columns/rows
+
+* Error Handling
+- Panics if given invalid value for k
+
+Computes one-sided interpolative decomposition via QRCP.
+For columns: A ≈ A[:,j]X
+For rows: A ≈ XA[j,:]
+
+*/
 
 pub fn osid_qrcp(
     y: &DMatrix<f64>,

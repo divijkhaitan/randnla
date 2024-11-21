@@ -17,6 +17,24 @@ use rand::distributions::DistIter;
 use rand_123::rng::ThreeFry2x64Rng;
 use rand_core::SeedableRng;
 
+//Sampling from Haar Distribution
+/**
+Generates a matrix from the uniform distribution over the space of all orthogonal matrices
+
+* Inputs:
+rows: number of rows in the matrix  
+columns: number of columns in the matrix  
+attr: row or column depending on which you need to be orthogonal  
+
+* Outputs:
+q:  Row or Column orthogonal matrix
+
+* Error Handling:
+Returns an error if a wide column orthogonal or tall row orthogonal matrix is requested
+
+* Notes:
+- The function divides by the sign of the diagonal elements in R, because QR factorisation is not unique and not doing so makes the distribution non uniform.
+*/
 pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result<DMatrix<f64>, Box<dyn Error>> {
     // Ensuring valid matrix dimensions, an orthonormal matrix cannot have 
     let (m, n) = match attr {
@@ -59,7 +77,21 @@ pub fn haar_sample(rows: usize, columns: usize, attr: MatrixAttribute) -> Result
     }
 }
 
-// Sketching Operator with error handling
+// Sketching Operator
+/**
+Generates a sketching matrix from a given distribution
+
+* Inputs:
+distribution: Gaussian(0, 1), Rademacher or Uniform(-1, 1)   
+rows: number of rows in the matrix  
+columns: number of columns in the matrix  
+
+* Outputs:
+matrix:  Matrix with entries sampled i.i.d. from the input distribution
+
+* Notes:
+- Uses the counter-based threefry random number generator which was built for parallelisation
+*/
 pub fn sketching_operator(
     dist_type: DistributionType, 
     rows: usize, 

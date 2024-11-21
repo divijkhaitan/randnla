@@ -2,6 +2,24 @@ use nalgebra::DMatrix;
 use crate::sketch::{sketching_operator, DistributionType};
 use crate::solvers::{solve_diagonal_system, solve_upper_triangular_system};
 
+// Sketch and Solve using QR factorisation  
+/**
+Implements sketched least squares solvers using QR decomposition.  
+
+* Inputs:
+a: m x n matrix (the primary coefficient matrix).  
+b: m x 1 matrix (the right-hand side vector).  
+
+* Output:
+x: An approximate solution x to the least-squares problem argmin_x ||Ax - b||_2.
+
+* Notes:
+- The original Blendenpik uses a fast subsampled trignometric transform, which may offer a boost in performance.
+- Better suited to well conditioned problems
+
+Computes the QR factorisations of the sketch and then uses it to solve the system.
+*/
+
 
 pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();
@@ -13,6 +31,22 @@ pub fn sketched_least_squares_qr(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f6
     let x = solve_upper_triangular_system(&r, &b_sk);
     x
 }
+
+// Sketch and Solve using Singular Value Decomposition  
+/*
+* Inputs:
+a: m x n matrix (the primary coefficient matrix).  
+b: m x 1 matrix (the right-hand side vector).  
+
+* Output:
+x: An approximate solution x to the least-squares problem argmin_x ||Ax - b||_2.
+
+* Notes:
+- Robust to ill conditioned problems
+- Panics when SVD fails
+Computes the SVD of the sketch and then uses it to solve the system.
+
+*/
 
 pub fn sketched_least_squares_svd(a:&DMatrix<f64>, b:&DMatrix<f64>) -> DMatrix<f64>{
     let rows = a.nrows();

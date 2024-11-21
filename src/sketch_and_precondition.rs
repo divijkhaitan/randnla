@@ -4,6 +4,25 @@ use crate::cg;
 use crate::errors::RandNLAError;
 use std::error::Error;
 
+// Blendenpik Least Squares Solver
+/**
+Implements the Blendenpik algorithm for solving overdetermined linear systems.
+
+* Inputs:
+a: An m x n matrix (must be overdetermined, i.e., m >= n).  
+b: An m x 1 matrix (the right-hand side of the system).  
+epsilon: Convergence tolerance for the Conjugate Gradient Least Squares (CGLS) solver.  
+l: Maximum number of iterations for the CGLS solver.  
+sampling_factor: A factor controlling the number of rows to sample during the sketching step.
+
+* Output:
+An approximate solution x to the least-squares problem argmin_x ||Ax - b||_2.
+
+This algorithm computes the QR decomposition of a sketch of A, uses the 
+upper triangular factor of the sketch as a preconditioner and solves the 
+system using CGLS. 
+*/
+
 pub fn blendenpik_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, l:usize, sampling_factor:f64) -> Result<DMatrix<f64>, Box<dyn Error>> {
     let m = a.nrows();
     let n = a.ncols();
@@ -19,12 +38,12 @@ pub fn blendenpik_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, 
     }
     if epsilon <= 0.0{
         return Err(Box::new(RandNLAError::InvalidParameters(
-            format!("Epsilon must be positive, current input is {}", sampling_factor)
+            format!("Epsilon must be positive, current input is {}", epsilon)
             )))
     }
     if l == 0{
         return Err(Box::new(RandNLAError::InvalidParameters(
-            format!("Number of iterations must be positive, current input is {}", sampling_factor)
+            format!("Number of iterations must be positive, current input is {}", l)
             )))
     }
     let d = if sampling_factor*(n as f64) > m as f64 {m} else {(sampling_factor*(n as f64)).floor() as usize};
@@ -38,6 +57,27 @@ pub fn blendenpik_overdetermined(a:&DMatrix<f64>, b:&DMatrix<f64>, epsilon:f64, 
     let z = cg::cgls(&a_preconditioned, &b, epsilon, l, Some(z_0));
     Ok(rinv*z)
 }
+
+// LSRN Least Squares Solver
+/**
+Solves overdetermined linear systems using the LSRN algorithm.
+
+* Inputs:
+a: An m x n matrix (must be overdetermined, i.e., `m >= n`).  
+b: An m x 1 matrix (the right-hand side of the system).  
+epsilon: Convergence tolerance for the Conjugate Gradient Least Squares (CGLS) solver.  
+l: Maximum number of iterations for the CGLS solver.  
+sampling_factor: A factor controlling the number of rows to sample during the sketching step (must be ≥ 1).
+
+* Output:
+x: An approximate solution x to the least-squares problem argmin_x ||Ax - b||_2.
+
+* Error Handling:
+Returns an error if the input parameters are invalid or the matrix dimensions are incompatible.
+
+This algorithm computes the SVD of a sketch of A, uses the orthogonal factors 
+of the sketch as preconditioners and solves the system using CGLS. 
+*/
 
 fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize, sampling_factor: f64) -> Result<DMatrix<f64>, Box<dyn Error>> {
     let m = a.nrows();
@@ -54,12 +94,12 @@ fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize,
     }
     if epsilon <= 0.0{
         return Err(Box::new(RandNLAError::InvalidParameters(
-            format!("Epsilon must be positive, current input is {}", sampling_factor)
+            format!("Epsilon must be positive, current input is {}", epsilon)
             )))
     }
     if l == 0{
         return Err(Box::new(RandNLAError::InvalidParameters(
-            format!("Number of iterations must be positive, current input is {}", sampling_factor)
+            format!("Number of iterations must be positive, current input is {}", l)
             )))
     }
     let d = if sampling_factor*(n as f64) > m as f64 {m} else {(sampling_factor*(n as f64)).floor() as usize};
@@ -78,6 +118,35 @@ fn lsrn_overdetermined(a: &DMatrix<f64>, b: &DMatrix<f64>, epsilon:f64, l:usize,
     Ok(n* y_hat)
 }
 
+//Saddle Point Solver
+/**
+Preconditions and solves a saddle-point problem of the form argmin_x ||Ax - b||_2^2 + mu||x||_2^2 + 2<c, x> as well as it's dual. It converts any dual or primal saddle point problem into a primal saddle point problem with the last term eliminated, 
+
+* Inputs:
+a: m x n matrix (the primary coefficient matrix).  
+b: m x 1 matrix (The vector to minimise matrix product from).  
+c: n x 1 matrix (Inner product term).  
+mu: Regularization factor (must be ≥ 0).  
+epsilon: Convergence tolerance for the Conjugate Gradient Least Squares (CGLS) solver.  
+l: Maximum number of iterations for the CGLS solver.  
+sampling_factor: Factor controlling the number of rows to sample during sketching (must be ≥ 1).  
+
+* Outputs:
+x: Solution to the primal saddle-point problem.  
+y: Solution to the dual saddle point problem
+
+* Error Handling:
+Returns an error if the input parameters are invalid or if the system is underdetermined (`m < n`).
+
+* Notes:
+- Would likely be faster with SRFT instead of gaussian sketch
+
+This algorithm computes an SVD of a sketch and modifies the singular values
+depending on the regularisation coefficient. Reduces the problem to a saddle 
+point with c = 0 and then a regular least squares problem which is solved by
+CGLS.
+*/
+
 fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMatrix<f64>, mu: f64, epsilon: f64, l: usize, sampling_factor: f64) -> Result<(DMatrix<f64>, DMatrix<f64>), Box<dyn Error>> {
     let (m, n) = a.shape();
     if m < n{
@@ -92,12 +161,12 @@ fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMat
     }
     if epsilon <= 0.0{
         return Err(Box::new(RandNLAError::InvalidParameters(
-            format!("Epsilon must be positive, current input is {}", sampling_factor)
+            format!("Epsilon must be positive, current input is {}", epsilon)
             )))
     }
     if l == 0{
         return Err(Box::new(RandNLAError::InvalidParameters(
-            format!("Number of iterations must be positive, current input is {}", sampling_factor)
+            format!("Number of iterations must be positive, current input is {}", 0)
             )))
     }
     let d = ((sampling_factor * n as f64).floor() as usize).max(1).min(m);
