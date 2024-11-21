@@ -1,8 +1,4 @@
-#![allow(dead_code)]
-#![allow(warnings)]
-#![allow(unused_imports)]
-use nalgebra::{DMatrix, dmatrix, DVector};
-use crate::sketch;
+use nalgebra::DMatrix;
 use crate::lora_helpers;
 
 
@@ -107,8 +103,8 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     
     let eig = C.symmetric_eigen();
 
-    let mut eigvals = eig.eigenvalues;
-    let mut eigvecs = eig.eigenvectors;
+    let eigvals = eig.eigenvalues;
+    let eigvecs = eig.eigenvectors;
 
 
     let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
@@ -118,7 +114,7 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     
     indices.sort_by(|&i, &j| abs_eigvals[j].0.partial_cmp(&abs_eigvals[i].0).unwrap());
 
-    let d = Q.ncols();
+    // let d = Q.ncols();
     let r = k.min(eigvals.iter().count());
 
     // top r 
@@ -181,7 +177,7 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
     let mysvd = B.clone().svd(true, true);
 
     let V_binding = mysvd.u.unwrap();
-    let W_binding = mysvd.v_t.unwrap().transpose();
+    // let W_binding = mysvd.v_t.unwrap().transpose();
     let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
     let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
 
@@ -200,10 +196,7 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 #[cfg(test)]
 mod test_randsvd
 {
-    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, check_approx_equal};
-    use crate::lora_helpers;
-    use crate::lora_drivers;
-    use std::time::Instant;
+    use crate::test_assist::{generate_random_matrix, check_approx_equal};
     use approx::assert_relative_eq;
     use super::*;
 
@@ -241,7 +234,7 @@ mod test_randsvd
         println!("Orig Trunc Dims: {:?}", orig_trunc.shape());
 
 
-        if (!check_approx_equal(&approx, &orig_trunc, 1.0)) {
+        if !check_approx_equal(&approx, &orig_trunc, 1.0) {
             println!("Exceeding tolerance")
         }
         else {
@@ -276,10 +269,10 @@ mod test_randsvd
         let s = 2;
 
         let (U, S, V) = rand_svd(&a, k, epsilon, s);
-        // assert_eq!(U.ncols(), k);
-        // assert_eq!(S.nrows(), k);
-        // assert_eq!(S.ncols(), k);
-        // assert_eq!(V.ncols(), k);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.nrows(), k);
     }
 
     #[test]
@@ -308,10 +301,10 @@ mod test_randsvd
         let s = 2;
 
         let (U, S, V) = rand_svd(&a, k, epsilon, s);
-        // assert_eq!(U.ncols(), k);
-        // assert_eq!(S.nrows(), k);
-        // assert_eq!(S.ncols(), k);
-        // assert_eq!(V.ncols(), k);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.nrows(), k);
     }
 
     #[test]
@@ -340,14 +333,14 @@ mod test_randsvd
         assert_eq!(S.ncols(), k);
         assert_eq!(V.nrows(), k);
         
-        if (!check_approx_equal(&U, &u_det.into(), 1.0)) {
+        if !check_approx_equal(&U, &u_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
-        if (!check_approx_equal(&S, &s_det.into(), 1.0)) {
+        if !check_approx_equal(&S, &s_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
 
-        if (!check_approx_equal(&V, &v_det.into(), 1.0)) {
+        if !check_approx_equal(&V, &v_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
 
@@ -378,7 +371,7 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let (U, _, _) = rand_svd(&a, k, epsilon, s);
 
         println!("U*U_trans: {}", &U * &U.transpose());
         assert_relative_eq!(U.transpose() * &U, DMatrix::identity(k, k), epsilon = 1.0);
@@ -393,7 +386,7 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let (_, S, _) = rand_svd(&a, k, epsilon, s);
         let singular_values: Vec<f64> = S.diagonal().iter().cloned().collect();
         let mut sorted_singular_values = singular_values.clone();
         sorted_singular_values.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -421,10 +414,10 @@ mod test_randsvd
 mod test_randevd1
 {
     use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix};
-    use crate::lora_helpers;
     use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
+    use nalgebra::{DMatrix, DVector};
     use super::*;
 
     #[test]
@@ -490,10 +483,7 @@ mod test_randevd1
 
         let k = dims - 2;
         let epsilon= 0.01;
-        let s = 5;
         
-        let k = 2;
-        let epsilon = 1e-6;
         let s = 1;
 
         println!("Running test_rand_evd1");
@@ -548,7 +538,7 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let (V, _) = rand_evd1(&a, k, epsilon, s);
         assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
     }
 
@@ -559,7 +549,7 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let (_, lambda) = rand_evd1(&a, k, epsilon, s);
         let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
         let mut sorted_lambda = abs_lambda.clone();
         sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -586,11 +576,11 @@ mod test_randevd1
 #[cfg(test)]
 mod test_randevd2
 {
-    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, generate_random_psd_matrix};
-    use crate::lora_helpers;
+    use crate::test_assist::generate_random_psd_matrix;
     use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
+    use nalgebra::{DMatrix, DVector};
     use super::*;
 
     #[test]
@@ -693,7 +683,7 @@ mod test_randevd2
 
         let result = rand_evd2(&a, k, s);
         assert!(result.is_ok());
-        let (V, lambda) = result.unwrap();
+        let (V, _) = result.unwrap();
         assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
     }
 
@@ -705,7 +695,7 @@ mod test_randevd2
 
         let result = rand_evd2(&a, k, s);
         assert!(result.is_ok());
-        let (V, lambda) = result.unwrap();
+        let (_, lambda) = result.unwrap();
         let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
         let mut sorted_lambda = abs_lambda.clone();
         sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -736,7 +726,6 @@ mod test_randevd2
         let A_rand_psd = generate_random_psd_matrix(dims);
 
         let k = 3;
-        let epsilon= 0.01;
         let s = 0;
 
         let tick = Instant::now();

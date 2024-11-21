@@ -1,5 +1,12 @@
 use nalgebra::{DMatrix, DVector};
 
+
+
+
+/**
+ * Input: Matrix A, a vector b, a tolerance value, a maximum number of iterations, and an optional initial guess x.
+ * Output: The solution to the linear system Ax = b, or an error message if the method fails to converge.
+ */
 pub fn cgls(
     a: &DMatrix<f64>,
     b: &DMatrix<f64>,
@@ -71,4 +78,25 @@ pub fn conjugate_grad(a: &DMatrix<f64>, b: &DVector<f64>, x: Option<DVector<f64>
 
 pub fn verify_solution(a: &DMatrix<f64>, b: &DVector<f64>, x: &DVector<f64>) -> f64 {
     (a * x - b).norm()
+}
+
+
+
+
+
+
+mod test_conjugate_gradient {
+
+    #![allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_conjugate_gradient() {
+        let a = DMatrix::from_row_slice(3, 3, &[4.0, 1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 3.0]);
+        let b = DVector::from_row_slice(&[1.0, 2.0, 3.0]);
+        let x = DVector::from_row_slice(&[1.0, 1.0, 1.0]);
+        let x_cg = conjugate_grad(&a, &b, Some(x));
+        let error = verify_solution(&a, &b, &x_cg);
+        assert!(error < 1e-10);
+    }
 }
