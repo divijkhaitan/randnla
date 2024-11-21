@@ -2,12 +2,19 @@ use nalgebra::DMatrix;
 use rand_distr::{Distribution, Normal, Uniform, Bernoulli, StandardNormal};
 use crate::errors::RandNLAError;
 use std::error::Error;
+//Distribution Type
+/**
+Distributions to sample sketching operators from, either rademacher, gaussian or uniform
+*/
 pub enum DistributionType {
     Gaussian,
     Uniform,
     Rademacher,
 }
-
+//Matrix Attrbute
+/**
+Row or Column Attribute for sampling orthogonal matrices
+*/
 pub enum MatrixAttribute {
     Row,
     Column,
