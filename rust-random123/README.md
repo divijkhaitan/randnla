@@ -1,3 +1,6 @@
+(Small modifications from [https://github.com/jgullingsrud/rust-random123](https://github.com/jgullingsrud/rust-random123))
+
+
 This is a port of portions of Random123, a library of counter-based
 pseudo-random number generators developed at D. E. Shaw Research and
 described in the publication linked below.

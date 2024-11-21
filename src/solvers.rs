@@ -8,6 +8,16 @@ use std::ops::{AddAssign, SubAssign, MulAssign, DivAssign};
 use std::f64;
 
 
+/** Solves the system of linear equations `Ux = y` where `U` is an upper triangular matrix.
+
+ # Inputs
+
+ * `u` - An `n x n` upper triangular matrix.
+ * `y` - An `n x 1` matrix representing the right-hand side vector.
+
+ # Output:
+ * `x` - An `n x 1` matrix representing the solution vector.
+*/
 
 pub fn solve_upper_triangular_system<T>(u: &DMatrix<T>, y: &DMatrix<T>) -> DMatrix<T>
 where
@@ -29,6 +39,19 @@ where
     }
     x
 }
+
+
+/** Solves the system of linear equations `Dx = y` where `D` is a diagonal matrix.
+
+ # Inputs:
+
+ * `u` - An `n x n` diagonal matrix.
+ * `y` - An `n x 1` matrix representing the right-hand side vector.
+
+ # Output:
+
+ * `x` - An `n x 1` matrix representing the solution vector.
+*/
 
 pub fn solve_diagonal_system<T>(u: &DMatrix<T>, y: &DMatrix<T>) -> DMatrix<T>
 where
@@ -399,7 +422,7 @@ mod test_solvers {
             DMatrix::from_vec(rows, cols, data)
         }
 
-        /// Generates a random vector of size (size) with normally distributed entries
+         /// Generates a random vector of size (size) with normally distributed entries
         fn generate_random_vector(size: usize) -> DVector<f64> {
             let normal = Normal::new(0.0, 1.0).unwrap();
             let mut rng = thread_rng();
