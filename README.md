@@ -93,3 +93,6 @@ cargo test
 ## Documentation
 The full documentation can be found in the [randblas](./doc/randblas/) folder in `html` files residing in folders for each file, or by running ```cargo doc --open``` which will open the documentation in the browser where you can navigate more easily
 
+
+## NOTE
+Code and docs submission on 21/11/2024
