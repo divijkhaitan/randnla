@@ -127,9 +127,7 @@ pub fn verify_solution(a: &DMatrix<f64>, b: &DVector<f64>, x: &DVector<f64>) -> 
 
 mod test_conjugate_gradient {
 
-    #![allow(unused_imports)]
     use super::*;
-    use approx::assert_relative_eq;
     use crate::test_assist::{self, generate_random_matrix};
 
     #[test]
