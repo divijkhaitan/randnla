@@ -1,30 +1,17 @@
 use nalgebra::DMatrix;
 use crate::sketch;
 
-
-
-// ======================================================================================
-// QB Decomposer
-
-
-
 /**
+Takes an `m × n` matrix and `k << min{m, n}` a positive integer and returns `Q` an `m × d` matrix returned by the underlying RangeFinder and `B = Q*A` an `d × n` matrix
+
 * Inputs:
-A is an m × n matrix and k << min{m, n} is a positive integer.
-eps is a target for the relative error ‖A − QB‖/‖A‖ measured in some
-unitarily-invariant norm. This parameter is passed directly to the
-RangeFinder, which determines its precise interpretation.
+`A` is an `m × n` matrix and `k << min{m, n}` is a positive integer.
 
 * Output:
-Q an m × d matrix returned by the underlying RangeFinder and
-B = Q∗A is d × n; we can be certain that d ≤ min{k, rank(A)}. The
-matrix QB is a low-rank approximation of A.
-
-The conceptual goal of QB decomposition algorithms is to produce an approximation ‖A − QB‖ ≤ eps (for some unitarily-invariant norm), where rank(QB) ≤
-min{k, rank(A)}. Our next three algorithms are different implementations of the
-QBDecomposer interface. The first two of these algorithms require an implementation of the RangeFinder interface. The ability of the implementation QB1 to control
-accuracy is completely dependent on that of the underlying rangefinder.
-(https://arxiv.org/pdf/2302.11474)
+`Q` an `m × d` matrix returned by the underlying RangeFinder and
+`B = Q*A` is a `d × n` matrix
+`QB` is a low-rank approximation of `A`.
+(<https://arxiv.org/pdf/2302.11474>)
  */
 
  pub fn QB1(A: &DMatrix<f64>, k: usize, epsilon: f64) -> (DMatrix<f64>, DMatrix<f64>) {
@@ -35,62 +22,39 @@ accuracy is completely dependent on that of the underlying rangefinder.
     return (Q, B)
 }
 
+/**
+Takes an `m x n` matrix and `0 < k << min{m, n}` and returns `Q` a column orthonormal matrix with `d = min{k, rank A}` columns
+
+* Input:
+`A` is `m × n`, and `k << min{m, n}` is a positive integer
+
+* Output:
+`Q` is a column-orthonormal matrix with `d = min{k, rank A}` columns
 
 
-
-// QB Decomposer
-// ======================================================================================
-
-
-// ======================================================================================
-// Range Finder
-/*
-Input:
-A is m × n, and k << min{m, n} is a positive integer
-Output:
-Q is a column-orthonormal matrix with d = min{k, rank A} columns
-
-
-A general RangeFinder takes in a matrix A and a target rank parameter k, and
-returns a matrix Q of rank d = min{k, rank(A)} such that the range of Q is an
-approximation to the space spanned by A’s top d left singular vectors.
-The rangefinder problem may also be viewed in the following way: given a
-matrix A ∈ Rm×n and a target rank k << min(m, n), find a matrix Q with k
-columns such that the error ‖A − QQ^*A‖ is “reasonably” small. Some RangeFinder
-implementations are iterative and can accept a target accuracy as a third argument.
+The range of Q is an approximation to the space spanned by A’s top d left singular vectors.
  */
-
-
-// TODO: does this need to take epsilon parameter?
 pub fn RF1(A: &DMatrix<f64>, k: usize) -> DMatrix<f64> {
 
-    // 2 and numbers for num_passes and passes_per_stab as advised in the monograph and other code
+    // 2 and 1 are numbers for num_passes and passes_per_stab as advised in the monograph and other code
     let sketch_S = tsog1(A, k, 2, 1);
     let Y = A*&(sketch_S);
     let Q = Orth(&Y);
-
-    // let sketch_S = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.ncols(), k).unwrap();
-    // let Y = A*&(sketch_S);
-    // let Q = Orth(&Y);
     return Q; 
 }
 
-// Range Finder
-// ======================================================================================
 
 
+/** 
+Data-aware sketching based on power iteration. Take an `m × n` matrix and `0 < k << min{m, n}` and returns an `n × k` sketch `S` 
 
-// ======================================================================================
-// Tall Sketch Operator Generator
-
-/** Input:
-A is m × n, and k << min{m, n} is a positive integer
-num_passes controls the number of passes
-passes_per_stab controls the frequency of stabilizer computation (number of matmuls with A or A* before stabilizer is called)
-
-Output:
-S is n × k, intended for later use in computing Y = A
-*/
+ * Input:
+ `A` is `m × n`, and `k << min{m, n}` is a positive integer
+ `num_passes` controls the number of passes
+ `passes_per_stab` controls the frequency of stabilizer computation (number of matmuls with A or A* before stabilizer is called)
+* Output:
+`S` is `n × k`, intended for later use in computing `Y = A*S`
+ */
 pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 ) -> DMatrix<f64> {
 
     let mut passes_done = 0;
@@ -141,8 +105,6 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
 }
 
 
-// Tall Sketch Operator Generator
-// ======================================================================================
 
 
 
@@ -150,50 +112,38 @@ pub fn tsog1(A: &DMatrix<f64>, k: usize, num_passes: i32, passes_per_stab: i32 )
 
 
 
-
-
-
-// ======================================================================================
 // Orth methods
 // needs to use economic qr decomposition
 // returns orthogonal Q factor from a QR decomposition
-/*
-Y = Orth(X) returns an orthonormal basis for the range of a tall input matrix;
-the number of columns in Y will never be larger than that of X and may be
-smaller. The simplest implementation of Orth is to return the orthogonal
-factor from an economic QR decomposition of X.
+/**
+ Returns orthonormal basis for the range of X
+
+ * Input:
+`X` is `m × n` matrix
+
+ * Output:
+`Y` is an orthonormal basis for the range of X
+
+The number of columns in Y will never be larger than that of X and may be
+smaller. We have used the simplest method and returned the orthogonal
+factor from a QR decomposition of X.
  */
 pub fn Orth(X: &DMatrix<f64>) -> DMatrix<f64> {
     X.clone().qr().q()
 }
 
-/*
-From the monograph:
-Y = Stabilizer(X) has similar semantics Orth. It differs in that it only
-requires Y to be better-conditioned than X while preserving its range. The
-relaxed semantics open up the possibility of methods that are less expensive
-than computing an orthonormal basis, such as taking the lower-triangular
-factor from an LU decomposition with column pivoting.
+
+/**
+Less expensive alternative to Orth(X) that returns a lower-triangular matrix L from LU decomp. Only requires Y to be better-conditioned than X while preserving its range.
+
+ * Input:
+ `X` is `m × n` matrix
+ * Output:
+`Y` is lower triangular matrix from LU decomposition of X with column pivoting
  */
 pub fn Stabilizer(X: & DMatrix<f64>) -> DMatrix<f64> {
     X.clone().full_piv_lu().l()
 }
-
-// Orth methods
-// ====================================================================================
-
-
-
-
-
-
-// ====================================================================================
-// Misc
-
-
-
-// ====================================================================================
-
 
 
 

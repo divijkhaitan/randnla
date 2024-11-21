@@ -7,19 +7,21 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
  */
 
 
-
-// randomized SVD
 /**
-* Inputs:
-A: m x n matrix
-The returned approximation will have rank at most k
-The approximation produced by the randomized phase of the
-algorithm will attempt to A to within eps error, but will not produce
-an approximation of rank greater than k + s.
-* Output:
-The compact SVD of a low-rank approximation of A
+SVD for low-rank approximation of the input matrix
 
-This algorithm uses randomization to compute a
+* Inputs:
+`A` is `m x n` matrix, `k` is the rank of the approximation, `epsilon` is the error tolerance, and `s` is the oversampling parameter
+* Output:
+The compact SVD of a low-rank approximation of `A`
+
+
+The returned approximation will have rank at most `k``
+The approximation produced by the randomized phase of the
+algorithm will attempt to A to within `epsilon` error, but will not produce
+an approximation of rank greater than `k + s`.
+
+This uses randomization to compute a
 QB decomposition of A, then deterministically computes QB’s compact SVD, and
 finally truncates that SVD to a specified rank.
  */
@@ -48,46 +50,19 @@ pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<
     return (U_final, S, V.transpose())
 }
 
-// assert k > 0
-// assert k <= min(A.shape)
-// if not np.isnan(tol):
-//     assert tol >= 0
-//     assert tol < np.inf
-// rng = np.random.default_rng(rng)
-// Q, B = self.qb(A, k + over, tol / 2, rng)
-// # B=Q^*A is necessary
-// C = B @ Q
-// lamb, U = la.eigh(C)
-// alamb = np.abs(lamb)
-// # d = number of columns in Q, d ≤ k + s
-// d = Q.shape[1]
-// r = min(k, d, np.count_nonzero(alamb > 10*np.finfo(float).eps))
-// I = np.argsort(-1*np.abs(alamb))[:r]
-// # indices of r largest components of |λ|
-// U = U[:, I]
-// lamb = lamb[I] 
-// V = Q @ U
-// return V, lamb
-
-
-
 
 /**
-Each randomized algorithm for low-rank SVD has a corresponding version that is
-specialized to Hermitian matrices. We recount those specialized algorithms here,
-and we mention an additional algorithm that is unique to the approximation of psd
-matrices. In general, we shall say that A is n × n and that the algorithms represent
-A_hat = V diag(λ)V∗, where V is a tall column-orthonormal matrix and λ is a vector
+Find approximations of the dominant eigenvectors and eigenvalues of a Hermitian matrix using randomization
+
+* Inputs:
+`A` is an `n x n` Hermitian matrix, `k` is the rank of the approximation, `epsilon` is the error tolerance, and `s` is the oversampling parameter
+
+* Output:
+Approximations of the dominant eigenvectors and eigenvalues of `A`
+
+
+This essentially finds an decomposition of an approximation `A_hat = V diag(λ)V^*`, where V is a tall column-orthonormal matrix and λ is a vector
 with entries sorted in decreasing order of absolute value
-
-Input:
-A is an n × n Hermitian matrix. The returned approximation will
-have rank at most k. The approximation produced by the randomized
-phase of the algorithm will attempt to A to within eps error, but will
-not produce an approximation of rank greater than k + s.
-
-Output:
-Approximations of the dominant eigenvectors and eigenvalues of A.
 */
 
 pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, Vec<f64>) {
@@ -134,25 +109,22 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
 
 
 
-
-    
-// only for positive semi-definite matrices
-// For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
 /** 
+Find approximations of the dominant eigenvectors and eigenvalues of a positive semi-definite matrix using randomization
+ 
  * Inputs: 
- A is an n × n psd matrix. The returned approximation will have rank
-at most k, but the sketching operator used in the algorithm can have
-rank as high as k + s.
+`A` is an `n x n` psd matrix, `k` is the rank of the approximation, and `s` is the oversampling parameter
 * Output:
 Approximations of the dominant eigenvectors and eigenvalues of A
+
+This essentially finds an decomposition of an approximation `A_hat = V diag(λ)V^*`, where V is a tall column-orthonormal matrix and λ is a vector
+with entries sorted in decreasing order of absolute value
 */
 
 pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
     println!("Running REVD2");
-    // let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
-    // let S = S_wrapped.unwrap();
     
-    // assert that all the eigenvalues of A are nonnegative
+    // assert that all eigenvals are nonnegative
     let eig = A.clone().symmetric_eigen();
     let eigvals = &eig.eigenvalues;
     if eigvals.iter().any(|&x| x < 0.0) {
@@ -199,8 +171,6 @@ mod test_randsvd
     use crate::test_assist::{generate_random_matrix, check_approx_equal};
     use approx::assert_relative_eq;
     use super::*;
-
-
 
     #[test]
     fn test_rand_svd_compare() {
