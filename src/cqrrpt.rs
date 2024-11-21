@@ -62,52 +62,12 @@ pub fn sap_chol_qrcp(a: &DMatrix<f64>, d: usize) -> (DMatrix<f64>, DMatrix<f64>,
 mod tests
 {
     use approx::assert_relative_eq;
-    use nalgebra::DMatrix;
     use crate::cqrrpt::sap_chol_qrcp;
     use crate::pivot_decompositions::qrcp;
     use crate::sketch::{sketching_operator, DistributionType};
     use rand::Rng;
     use std::time::Instant;
-    
-    fn permutation_vector_to_transpose_matrix(perm: &[usize]) -> DMatrix<f64> {
-        let n = perm.len();
-        let mut perm_matrix = DMatrix::<f64>::zeros(n, n); // Initialize an n x n matrix with zeros
-    
-        for (i, &p) in perm.iter().enumerate() {
-            perm_matrix[(i, p)] = 1.0;
-        }
-    
-        perm_matrix
-    }
-    fn check_approx_equal(a: &DMatrix<f64>, b: &DMatrix<f64>, tolerance: f64) -> bool {
-        if a.shape() != b.shape() {
-            return false;
-        }
-        
-        for i in 0..a.nrows() {
-            for j in 0..a.ncols() {
-                if (a[(i, j)] - b[(i, j)]).abs() > tolerance {
-                    println!("{}, {}, {}, {}", i, j, a[(i, j)], b[(i, j)]);
-                    return false;
-                }
-            }
-        }
-        
-        true
-    }
-    
-    fn check_upper_triangular(a: &DMatrix<f64>, tolerance: f64) -> bool {
-        
-        for i in 0..a.nrows() {
-            for j in 0..i.min(a.ncols()) {
-                if (a[(i, j)]).abs() > tolerance {
-                    // println!("({}, {}), {}", i, j, a[(i, j)]);
-                    return false;
-                }
-            }
-        }
-        true
-    }
+    use crate::test_assist::{check_approx_equal, permutation_vector_to_transpose_matrix, check_upper_triangular};
     #[test]
     fn test_cqrrpt(){
         let n = 10;
@@ -159,7 +119,6 @@ mod tests
         let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
         sap_chol_qrcp(&data, d);
     }
-    
     #[test]
     #[should_panic(expected = "d must satisfy n ≤ d ≪ m")] // Optional: specify panic message
     fn test_cqrrpt_wide_matrix()

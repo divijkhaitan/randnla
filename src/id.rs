@@ -312,38 +312,11 @@ pub fn osid_qrcp(
 #[cfg(test)]
 mod tests {
     use crate::{id::{two_sided_id, two_sided_id_randomised}, sketch::MatrixAttribute};
-    use nalgebra::DMatrix;
     use crate::sketch::{DistributionType, sketching_operator};
     use super::{cur, cur_randomised, osid_qrcp, osid_randomised};
-    use rand::{Rng, thread_rng};
-    use rand_distr::{Distribution, StandardNormal};
+    use rand::Rng;
     use std::time::Instant;
-    
-    fn rank_k_matrix(m: usize, n: usize, k: usize) -> DMatrix<f64> {
-        assert!(k <= m.min(n), "k must be <= min(l,w)");
-        
-        let mut rng = thread_rng();
-        let normal = StandardNormal;
-    
-        // Preallocate output matrix
-        let mut result = DMatrix::zeros(m, n);
-        
-        // Generate and multiply k rank-1 updates
-        for _ in 0..k {
-            // Generate random vectors
-            let u: Vec<f64> = (0..m).map(|_| normal.sample(&mut rng)).collect();
-            let v: Vec<f64> = (0..n).map(|_| normal.sample(&mut rng)).collect();
-            
-            // Add rank-1 update: u * v^T
-            for i in 0..m {
-                for j in 0..n {
-                    result[(i, j)] += u[i] * v[j];
-                }
-            }
-        }
-        
-        result
-    }
+    use crate::test_assist::rank_k_matrix;
     
     #[test]
     #[should_panic(expected = "k must be positive")] // Optional: specify panic message
@@ -379,7 +352,6 @@ mod tests {
         let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
         cur(&data, d);
     }
-    
     #[test]
     #[should_panic(expected = "k must be positive")] // Optional: specify panic message
     fn test_cur_randomised_zero_d()
@@ -424,7 +396,6 @@ mod tests {
         let data = sketching_operator(DistributionType::Uniform, m, n).unwrap();
         osid_qrcp(&data, d, MatrixAttribute::Column);
     }
-    
     #[test]
     #[should_panic(expected = "k must be <= min(l,w)")] // Optional: specify panic message
     fn test_osid_randomised_wrong_d()

@@ -220,72 +220,12 @@ fn sketch_saddle_point_precondition(a: &DMatrix<f64>, b: &DMatrix<f64>, c: &DMat
 mod tests
 {
     use rand::Rng;
-    use rand_distr::{Uniform, Normal, Distribution};
+    use rand_distr::{Uniform, Distribution};
     use nalgebra::{DMatrix, DVector};
-    use crate::{sketch::{sketching_operator, DistributionType}, sketch_and_precondition::{blendenpik_overdetermined, lsrn_overdetermined, sketch_saddle_point_precondition}, solvers::{solve_diagonal_system, solve_upper_triangular_system}};
+    use crate::{sketch_and_precondition::{blendenpik_overdetermined, lsrn_overdetermined, sketch_saddle_point_precondition}, solvers::{solve_diagonal_system, solve_upper_triangular_system}};
     use std::time::Instant;
     use crate::cg;
-    
-    fn generate_tall_ill_conditioned_matrix(m: usize, n: usize, condition_number: f64) -> DMatrix<f64> {
-        assert!(m > n, "m must be greater than n for a tall matrix");
-        
-        let mut rng = rand::thread_rng();
-        let mut a = sketching_operator(DistributionType::Gaussian, m, n).unwrap();
-    
-        // Modified Gram-Schmidt
-        for i in 0..n {
-            let mut v = a.column(i).clone_owned();
-            for j in 0..i {
-                let proj = a.column(j).dot(&v);
-                v -= proj * a.column(j);
-            }
-            v /= v.norm();
-            a.set_column(i, &v);
-        }
-    
-        // Scale columns to worsen conditioning
-        let singular_values = DVector::from_fn(n, |i, _| {
-            if i == 0 {
-                condition_number
-            } else if i == n - 1 {
-                1.0
-            } else {
-                rng.gen_range(1.0..condition_number)
-            }
-        });
-    
-        for i in 0..n {
-            let mut col = a.column_mut(i);
-            col *= singular_values[i];
-        }
-    
-        a
-    }
-    
-    fn generate_least_squares_problem(m:usize , n:usize, ill_conditioning:bool)  -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
-        // This code is to generate a random hypothesis, and add generate noisy data from that hypothesis
-        let mut rng = rand::thread_rng();
-        let epsilon = 0.0001;
-        let normal = Normal::new(0.0, epsilon).unwrap();
-        let uniform = Uniform::new(-100.0, 100.0);
-        let hypothesis = DMatrix::from_fn(n, 1, |_i, _j| uniform.sample(&mut rng));
-        let data = {
-            if ill_conditioning{
-                generate_tall_ill_conditioned_matrix(m, n, 1e6)
-            }
-            else
-            {
-                sketching_operator(DistributionType::Gaussian, m, n).unwrap()
-            }
-        };
-        let mut y = &data*&hypothesis;
-        let noise_vector = DMatrix::from_fn(m, 1, |_, _| normal.sample(&mut rng));
-        for i in 0..m {
-            y[(i, 0)] += noise_vector[(i, 0)];
-        }
-        (data, hypothesis, y)
-    }
-    
+    use crate::test_assist::generate_least_squares_problem;
     #[test]
     fn test_blendenpik_overdetermined(){
         let n = 10;
@@ -395,8 +335,6 @@ mod tests
         println!("Actual Residual: {}, Sketched residual: {}, Iterative Residual: {}", norm_actual, norm_sketch, norm_iterative);
         println!("Times: (Actual, Sketched, Iterative): {:.2?} {:.2?} {:.2?}", duration_deterministic, duration_randomised, duration_iterative);
     }
-    
-    
     #[test]    
     fn test_lsrn_overdetermined(){
         let n = rand::thread_rng().gen_range(10..50);
