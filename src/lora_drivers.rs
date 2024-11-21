@@ -1,9 +1,11 @@
 use nalgebra::DMatrix;
 use crate::lora_helpers;
+use crate::errors::RandNLAError;
+use std::error::Error;
 
 
 /*
-TODO: Remove the use of clones and try to optimize performance wherever you can
+TODO: see using gemm for matmul and do proper error handling
  */
 
 
@@ -25,30 +27,47 @@ This uses randomization to compute a
 QB decomposition of A, then deterministically computes QB’s compact SVD, and
 finally truncates that SVD to a specified rank.
  */
-pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
+pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> Result<(DMatrix<f64>, DMatrix<f64>, DMatrix<f64>), RandNLAError> {
+    if k == 0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Rank k must be positive, current input is {}", k)
+        ));
+    }
+    if epsilon <= 0.0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Epsilon must be positive, current input is {}", epsilon)
+        ));
+    }
+    if s == 0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Oversampling parameter s must be positive, current input is {}", s)
+        ));
+    }
+
     println!("Running RSVD");
     
-    
     let (Q, B) = lora_helpers::QB1(A, k + s, epsilon);
-    // TODO: Check that QB approx equal to A
+
     let r = k.min(Q.ncols());
 
-    
-    let svd = B.svd(true, true);
-    
-    
-    let U = svd.u.as_ref().expect("SVD failed to compute U").columns(0, r).into_owned();  
-    
-    
-    let V = svd.v_t.as_ref().expect("SVD failed to compute V_t").transpose().columns(0, r).into_owned();
+    let svd = match B.svd(true, true) {
+        svd if svd.u.is_some() && svd.v_t.is_some() => svd,
+        _ => return Err(RandNLAError::MatrixDecompositionError(
+            "SVD decomposition failed".to_string()
+        ))
+    };
 
+    let U = svd.u.as_ref().unwrap().columns(0, r).into_owned();
+    
+    let V = svd.v_t.as_ref().unwrap().transpose().columns(0, r).into_owned();
 
     let S = DMatrix::from_diagonal(&svd.singular_values).rows(0, r).columns(0,r).into_owned();
 
     let U_final = &Q * &U;
     
-    return (U_final, S, V.transpose())
+    Ok((U_final, S, V.transpose()))
 }
+
 
 
 /**
@@ -65,46 +84,70 @@ This essentially finds an decomposition of an approximation `A_hat = V diag(λ)V
 with entries sorted in decreasing order of absolute value
 */
 
-pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, Vec<f64>) {
+pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), RandNLAError> {
+    // Parameter validation
+    if k == 0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Rank k must be positive, current input is {}", k)
+        ));
+    }
+    if epsilon <= 0.0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Epsilon must be positive, current input is {}", epsilon)
+        ));
+    }
+    if s == 0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Oversampling parameter s must be positive, current input is {}", s)
+        ));
+    }
+
+    // Check Hermitian property
+    if A != &A.adjoint() {
+        return Err(RandNLAError::NotHermitian(
+            "Input matrix is not Hermitian".to_string()
+        ));
+    }
 
     println!("Running REVD1");
-    assert!(A == &A.adjoint());
     
-    let (Q, B) = lora_helpers::QB1(A, k + s, epsilon);
+    let (Q, B) = match lora_helpers::QB1(A, k + s, epsilon) {
+        (Q, B) => (Q, B),
+        _ => return Err(RandNLAError::ComputationError(
+            "QB1 decomposition failed".to_string()
+        ))
+    };
     
     let C = &B * &Q;
 
-    assert!(C == &Q.adjoint() * A * &Q);
+    if C != &Q.adjoint() * A * &Q {
+        return Err(RandNLAError::ComputationError(
+            "Matrix multiplication check failed".to_string()
+        ));
+    }
     
     let eig = C.symmetric_eigen();
 
     let eigvals = eig.eigenvalues;
     let eigvecs = eig.eigenvectors;
 
-
     let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
 
-    // float isn't an iterator and not comparable by default, so we can't just do sort_by ascending
     let mut indices: Vec<usize> = abs_eigvals.iter().map(|&(_, i)| i).collect();
     
     indices.sort_by(|&i, &j| abs_eigvals[j].0.partial_cmp(&abs_eigvals[i].0).unwrap());
 
-    // let d = Q.ncols();
     let r = k.min(eigvals.iter().count());
 
-    // top r 
     let selected_indices = indices.iter().take(r);
 
     let lambda: Vec<f64> = selected_indices.clone().map(|&i| eigvals[i]).collect();
 
+    let U = DMatrix::from_columns(&selected_indices.map(|&i| eigvecs.column(i)).collect::<Vec<_>>());
 
-    let U = DMatrix::from_columns(&selected_indices.map(|&i| eigvecs.column(i)).collect::<Vec<_>>()
-    );
-    // println!("Q: {}", Q);
-    // println!("U: {}", U);
     let V = Q * U;
-    // println!("V: {}", V);
-    return (V, lambda);
+
+    Ok((V, lambda))
 }
 
 
@@ -121,14 +164,23 @@ This essentially finds an decomposition of an approximation `A_hat = V diag(λ)V
 with entries sorted in decreasing order of absolute value
 */
 
-pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
+pub fn rand_evd2(A: &DMatrix<f64>, k: usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), RandNLAError> {
+    // Parameter validation
+    if k == 0 {
+        return Err(RandNLAError::InvalidParameters(
+            format!("Rank k must be positive, current input is {}", k)
+        ));
+    }
+
     println!("Running REVD2");
     
-    // assert that all eigenvals are nonnegative
+    // Check positive semi-definite
     let eig = A.clone().symmetric_eigen();
     let eigvals = &eig.eigenvalues;
     if eigvals.iter().any(|&x| x < 0.0) {
-        return Err("Matrix is not positive semi-definite");
+        return Err(RandNLAError::NotPositiveSemiDefinite(
+            "Matrix is not positive semi-definite".to_string()
+        ));
     }
 
     let S = lora_helpers::tsog1(A, k+s, 3, 1);
@@ -140,25 +192,35 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 
     let chol = match SY.cholesky() {
         Some(c) => c,
-        None => return Err("Cholesky Decomposition Failed"),
+        None => return Err(RandNLAError::MatrixDecompositionError(
+            "Cholesky Decomposition Failed".to_string()
+        ))
     };
 
-    // in the monograph, we need the upper triangular part but in nalgebra we get the lower triangular part, so we can't use it directly
     let R = chol.l().transpose();
-    let B = Y_new*(R.try_inverse().unwrap());
-    let mysvd = B.clone().svd(true, true);
+    let B = match Y_new * (R.try_inverse().unwrap()) {
+        B => B,
+        _ => return Err(RandNLAError::MatrixDecompositionError(
+            "Matrix Inverse Failed".to_string()
+        ))
+    };
+    
+    let mysvd = match B.clone().svd(true, true) {
+        svd if svd.u.is_some() && svd.v_t.is_some() => svd,
+        _ => return Err(RandNLAError::MatrixDecompositionError(
+            "SVD Decomposition Failed".to_string()
+        ))
+    };
 
     let V_binding = mysvd.u.unwrap();
-    // let W_binding = mysvd.v_t.unwrap().transpose();
     let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
     let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
 
-    // we need the ones that are greater than nu
     let r = std::cmp::min(k, lambda.iter().filter(|&&x| x > nu).count());
     let lambda1 = lambda.iter().take(r).map(|x| x - nu).collect::<Vec<f64>>();
     let V_final = V_binding.columns(0, r).into_owned();
 
-    return Ok((V_final, lambda1));
+    Ok((V_final, lambda1))
 }
 
 
@@ -166,11 +228,37 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 
 
 #[cfg(test)]
-mod test_randsvd
-{
+mod test_randsvd {
+    use super::*;
     use crate::test_assist::{generate_random_matrix, check_approx_equal};
     use approx::assert_relative_eq;
-    use super::*;
+
+    #[test]
+    fn test_rand_svd_basic_functionality() {
+        let a = generate_random_matrix(100, 50);
+        let k = 45;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.nrows(), k);
+    }
+
+    #[test]
+    fn test_rand_svd_invalid_k() {
+        let a = generate_random_matrix(100, 50);
+        let k = 0;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(matches!(result, Err(RandNLAError::InvalidParameters(_))));
+    }
 
     #[test]
     fn test_rand_svd_compare() {
@@ -179,7 +267,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
 
 
          // Compare with deterministic SVD
@@ -198,10 +288,8 @@ mod test_randsvd
          
         // reconstructed matrix:
         let approx = &U * &S * V.clone();
-        println!("Approx Dims: {:?}", approx.shape());
 
         let orig_trunc = &u_det * &s_det * &v_det;
-        println!("Orig Trunc Dims: {:?}", orig_trunc.shape());
 
 
         if !check_approx_equal(&approx, &orig_trunc, 1.0) {
@@ -224,7 +312,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
         assert_eq!(U.ncols(), k);
         assert_eq!(S.nrows(), k);
         assert_eq!(S.ncols(), k);
@@ -238,7 +328,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
         assert_eq!(U.ncols(), k);
         assert_eq!(S.nrows(), k);
         assert_eq!(S.ncols(), k);
@@ -252,12 +344,13 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
         assert_eq!(U.ncols(), k);
         assert_eq!(S.nrows(), k);
         assert_eq!(S.ncols(), k);
         assert_eq!(V.nrows(), k);
-        println!("Check: {}", DMatrix::<f64>::identity(10, k).columns(0,k) );
         assert_relative_eq!(U, DMatrix::identity(10, k).columns(0,k).into(), epsilon = 1e-6);
         assert_relative_eq!(S, DMatrix::zeros(k, k), epsilon = 1e-6);
         assert_relative_eq!(V.transpose(), DMatrix::<f64>::identity(5, k).columns(0,k).into(), epsilon = 1e-6);
@@ -270,7 +363,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
         assert_eq!(U.ncols(), k);
         assert_eq!(S.nrows(), k);
         assert_eq!(S.ncols(), k);
@@ -284,7 +379,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
 
        // Compare with deterministic SVD
        let svd = a.svd(true, true);
@@ -313,11 +410,6 @@ mod test_randsvd
         if !check_approx_equal(&V, &v_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
-
-
-        // assert_relative_eq!(U, u_det, epsilon = 1e-6);
-        // assert_relative_eq!(S, s_det, epsilon = 1e-6);
-        // assert_relative_eq!(V, v_det, epsilon = 1e-6);
     }
 
     #[test]
@@ -327,7 +419,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
         assert_eq!(S.nrows(), U.ncols());
         assert_eq!(S.ncols(), V.nrows());
         assert_eq!(U.nrows(), a.nrows());
@@ -341,9 +435,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, _, _) = rand_svd(&a, k, epsilon, s);
-
-        println!("U*U_trans: {}", &U * &U.transpose());
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, _, _) = result.unwrap();
         assert_relative_eq!(U.transpose() * &U, DMatrix::identity(k, k), epsilon = 1.0);
         
         // assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
@@ -356,7 +450,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (_, S, _) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (_, S, _) = result.unwrap();
         let singular_values: Vec<f64> = S.diagonal().iter().cloned().collect();
         let mut sorted_singular_values = singular_values.clone();
         sorted_singular_values.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -370,7 +466,9 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (U, S, V) = result.unwrap();
         let A_approx = &U * &S * V;
         let error = (&a - &A_approx).norm() / a.norm();
         assert!(error <= 1.0);
@@ -384,10 +482,9 @@ mod test_randsvd
 mod test_randevd1
 {
     use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix};
-    use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
-    use nalgebra::{DMatrix, DVector};
+    use nalgebra::{DMatrix, DVector, dmatrix};
     use super::*;
 
     #[test]
@@ -396,10 +493,24 @@ mod test_randevd1
         let k = 3;
         let epsilon = 1e-6;
         let s = 2;
+        
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
 
-        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
         assert_eq!(V.ncols(), k);
         assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_wrong_hermitian() {
+        let a = dmatrix![1.0, 2.0, 3.0; 100.0, 200.0, 4.0; 3.0, 38.0, 1.0];
+        let k = 3;
+        let epsilon = 1e-6;
+        let s = 2;
+
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -409,7 +520,10 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 5;
 
-        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+        
         assert_eq!(V.ncols(), k);
         assert_eq!(lambda.len(), k);
     }
@@ -421,7 +535,10 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+
         assert_eq!(V.ncols(), k);
         assert_eq!(lambda.len(), k);
         let real_soln = a.symmetric_eigen();
@@ -437,7 +554,10 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = lora_drivers::rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
+
         assert_eq!(V.ncols(), k);
         assert_eq!(lambda.len(), k);
     }
@@ -459,7 +579,11 @@ mod test_randevd1
         println!("Running test_rand_evd1");
 
         let tick = Instant::now();
-        let (v, lambda) = lora_drivers::rand_evd1(&A_rand_psd, k, epsilon, s);
+
+        let result = rand_evd1(&A_rand_psd, k, epsilon, s);
+        assert!(result.is_ok());
+        let (v, lambda) = result.unwrap();
+
         let tock = tick.elapsed();
         println!("Time taken by RandEVD1: {:?}", tock);
 
@@ -496,7 +620,9 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
         assert_eq!(lambda.len(), V.ncols());
         assert_eq!(V.nrows(), a.nrows());
     }
@@ -508,7 +634,9 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, _) = rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, _) = result.unwrap();
         assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
     }
 
@@ -519,7 +647,9 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (_, lambda) = rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (_, lambda) = result.unwrap();
         let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
         let mut sorted_lambda = abs_lambda.clone();
         sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -533,7 +663,9 @@ mod test_randevd1
         let epsilon = 2.0;
         let s = 2;
 
-        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let result = rand_evd1(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (V, lambda) = result.unwrap();
         let A_approx = &V * DMatrix::from_diagonal(&DVector::from_vec(lambda.clone())) * V.transpose();
         let error = (&a - &A_approx).norm() / a.norm();
         println!("Error: {}", error);
@@ -550,7 +682,7 @@ mod test_randevd2
     use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
-    use nalgebra::{DMatrix, DVector};
+    use nalgebra::{DMatrix, DVector, dmatrix};
     use super::*;
 
     #[test]
@@ -564,6 +696,16 @@ mod test_randevd2
         let (V, lambda) = result.unwrap();
         assert_eq!(V.ncols(), k);
         assert_eq!(lambda.len(), k);
+    }
+
+    #[test]
+    fn test_wrong_psd() {
+        let a = dmatrix![1.0, 2.0, 3.0; 100.0, 200.0, 4.0; 3.0, 38.0, 1.0];
+        let k = 3;
+        let s = 2;
+
+        let result = rand_evd2(&a, k, s);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -720,7 +862,7 @@ mod test_randevd2
         let diff_v = rand_v_norm - v_norm;
         println!("Difference between V's: {}", diff_v);
 
-        // find the reconstruction error between rand and deterministic after truncating the deterministic ka columns to the specified rank. Reconstruction error is the different between the original matrix A truncated and the reconstructed matrix from the eigvects and eigvals
+        // we find the reconstruction error between rand and deterministic after truncating the deterministic ka columns to the specified rank. Reconstruction error is the different between the original matrix A truncated and the reconstructed matrix from the eigvects and eigvals
 
         // println!("V: {}", V);
         // println!("V_Rand: {}", v_rand);

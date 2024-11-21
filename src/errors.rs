@@ -7,6 +7,10 @@ pub enum RandNLAError {
     NotOverdetermined(String),
     NotSquare(String),
     SingularMatrix(String),
+    MatrixDecompositionError(String),
+    NotHermitian(String),
+    NotPositiveSemiDefinite(String),
+    ComputationError(String),
 }
 
 impl std::fmt::Display for RandNLAError {
@@ -18,6 +22,10 @@ impl std::fmt::Display for RandNLAError {
             RandNLAError::NotOverdetermined(msg) |
             RandNLAError::SingularMatrix(msg) |
             RandNLAError::NotSquare(msg) => write!(f, "{}", msg),
+            RandNLAError::MatrixDecompositionError(msg) => write!(f, "Matrix decomposition error: {}", msg),
+            RandNLAError::NotHermitian(msg) => write!(f, "Not a Hermitian matrix: {}", msg),
+            RandNLAError::NotPositiveSemiDefinite(msg) => write!(f, "Not a positive semi-definite matrix: {}", msg),
+            RandNLAError::ComputationError(msg) => write!(f, "Computation error: {}", msg),
         }
     }
 }

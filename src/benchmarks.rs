@@ -17,15 +17,13 @@ use crate::id;
 use crate::cqrrpt;
 use crate::lora_drivers::{rand_svd, rand_evd1, rand_evd2};
 use crate::lora_helpers;
-use crate::reg_quad;
 use crate::cg_tests;
 use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, generate_random_psd_matrix, check_approx_equal};
 
-// Need to benchmark mainly two things: speed and accuracy and showcase the tradeoffs. Show speed graphs with increase in matrix dimensions and accuracy graphs with increase in matrix dimensions. Also graph with the k parameter also cause that's the rank k approximation
-
-// can plot the time and the accuracy on the same graph with two axes
-
-
+/*!
+ * NOTE:
+ * BENCHMARKS ARE INCOMPLETE since only the functional code and docs were required by the deadline and benchmarks are for the technical writeup
+ */
 
 
 #[cfg(test)]
@@ -48,7 +46,9 @@ mod svd_benchmarks {
 
         // Randomized SVD
         let tick = Instant::now();
-        let (u_comp, sigma, v_comp) = rand_svd(&a_matrix, k, epsilon, s);
+        let result = rand_svd(&a, k, epsilon, s);
+        assert!(result.is_ok());
+        let (u_comp, s_comp, v_comp) = result.unwrap();
         let rand_svd_time = tick.elapsed();
 
         // Deterministic SVD

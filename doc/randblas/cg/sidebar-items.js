@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["cgls","conjugate_grad","verify_solution"]};

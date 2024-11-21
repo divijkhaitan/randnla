@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["sketched_least_squares_qr","sketched_least_squares_svd"]};

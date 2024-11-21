@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["economic_qrcp","lupp","qrcp"]};

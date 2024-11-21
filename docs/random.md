@@ -1,1 +1,0 @@
-The [rust-random123](https://github.com/jgullingsrud/rust-random123) library doesn't have all the functionality of the original Random123 library. It has the Philox and Threefry CBRNGs but doesn't have the Box Muller or Ziggurat transforms.

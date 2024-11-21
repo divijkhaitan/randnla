@@ -47,7 +47,6 @@ where
 }
 
 
-// Stable implementation of Givens rotation
 
 /* 
 needed cause signum gives +1 for 0 which we don't want
@@ -58,6 +57,7 @@ fn sign(x: f64) -> f64 {
     else { 0.0 }
 }
 
+/// Stable implementation of Givens rotation
 fn sym_ortho(a: f64, b: f64) -> (f64, f64, f64) {
     if b == 0.0 {
         return (sign(a), 0.0, a.abs());
@@ -78,6 +78,17 @@ fn sym_ortho(a: f64, b: f64) -> (f64, f64, f64) {
     }
 }
 
+
+
+/**
+Find the least-squares solution to a large, sparse, linear system of equations
+
+* Input: `A` an m x n matrix and `b` an m x 1 vector
+* Output: The least-squares solution to the system Ax = b, along with other useful information
+Translated from <https://github.com/scipy/scipy/blob/v1.14.1/scipy/sparse/linalg/_isolve/lsqr.py#L96-L587>
+
+Other parameters and return values same as above scipy implementation
+ */
 pub fn lsqr(
     a: &DMatrix<f64>,
     b: &DVector<f64>,
@@ -251,6 +262,108 @@ mod test_solvers {
     use super::*;
     use approx::assert_relative_eq;
 
+
+    #[test]
+    fn test_upper_triangular_basic() {
+        let u = DMatrix::from_row_slice(3, 3, &[
+            2.0, 1.0, 1.0,
+            0.0, 2.0, 1.0,
+            0.0, 0.0, 2.0
+        ]);
+        let y = DMatrix::from_row_slice(3, 1, &[4.0, 2.0, 2.0]);
+        let x = solve_upper_triangular_system(&u, &y);
+        let expected = DMatrix::from_row_slice(3, 1, &[1.25, 0.5, 1.0]);
+        
+        assert_relative_eq!(x, expected, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_upper_triangular_identity() {
+        let u = DMatrix::<f64>::identity(3, 3);
+        let y = DMatrix::from_row_slice(3, 1, &[1.0, 2.0, 3.0]);
+        let x = solve_upper_triangular_system(&u, &y);
+        
+        assert_relative_eq!(x, y, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_upper_triangular_zero_diagonal() {
+        let u = DMatrix::from_row_slice(3, 3, &[
+            1.0, 1.0, 1.0,
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0
+        ]);
+        let y = DMatrix::from_row_slice(3, 1, &[1.0, 1.0, 1.0]);
+        let x = solve_upper_triangular_system(&u, &y);
+        
+        // Check if solution satisfies Ux = y where possible
+        let result = &u * &x;
+        assert_relative_eq!(result[(2, 0)], y[(2, 0)], epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_upper_triangular_f32() {
+        let u = DMatrix::<f32>::from_row_slice(2, 2, &[
+            2.0, 1.0,
+            0.0, 2.0
+        ]);
+        let y = DMatrix::<f32>::from_row_slice(2, 1, &[3.0, 2.0]);
+        let x = solve_upper_triangular_system(&u, &y);
+        let expected = DMatrix::<f32>::from_row_slice(2, 1, &[1.0, 1.0]);
+        
+        assert_relative_eq!(x, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_diagonal_basic() {
+        let d = DMatrix::from_diagonal(&DVector::from_row_slice(&[2.0, 3.0, 4.0]));
+        let y = DMatrix::from_row_slice(3, 1, &[2.0, 6.0, 8.0]);
+        let x = solve_diagonal_system(&d, &y);
+        let expected = DMatrix::from_row_slice(3, 1, &[1.0, 2.0, 2.0]);
+        
+        assert_relative_eq!(x, expected, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_diagonal_identity() {
+        let d = DMatrix::<f64>::identity(3, 3);
+        let y = DMatrix::from_row_slice(3, 1, &[1.0, 2.0, 3.0]);
+        let x = solve_diagonal_system(&d, &y);
+        
+        assert_relative_eq!(x, y, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_diagonal_zero_elements() {
+        let d = DMatrix::from_diagonal(&DVector::from_row_slice(&[2.0, 0.0, 3.0]));
+        let y = DMatrix::from_row_slice(3, 1, &[2.0, 1.0, 3.0]);
+        let x = solve_diagonal_system(&d, &y);
+        
+        assert_relative_eq!(x[(0, 0)], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(x[(1, 0)], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(x[(2, 0)], 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_diagonal_1x1() {
+        let d = DMatrix::from_row_slice(1, 1, &[2.0]);
+        let y = DMatrix::from_row_slice(1, 1, &[4.0]);
+        let x = solve_diagonal_system(&d, &y);
+        
+        assert_relative_eq!(x[(0, 0)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_both_solvers_equivalent() {
+        let d = DMatrix::from_diagonal(&DVector::from_row_slice(&[2.0, 3.0, 4.0]));
+        let y = DMatrix::from_row_slice(3, 1, &[2.0, 6.0, 8.0]);
+        
+        let x1 = solve_diagonal_system(&d, &y);
+        let x2 = solve_upper_triangular_system(&d, &y);
+        
+        assert_relative_eq!(x1, x2, epsilon = 1e-10);
+    }
+
     #[test]
     fn test_simple_system() {
         // Create a simple 3x2 system: [[1, 0], [1, 1], [0, 1]]
@@ -325,7 +438,6 @@ mod test_solvers {
         // println!("==== x from lsqr: {}", x);
         println!("==== Time taken by lsqr: {:?}", tick.elapsed());
         
-        // assert_eq!(istop, 1); // Should converge
         // The least squares solution should minimize ||Ax - b||
         // println!("==== x: {}", x);
         let residual = &a * &x - &b;
