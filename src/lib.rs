@@ -1,5 +1,10 @@
+/*!
+ * A package for randomised numerical linear algebra written in Rust.
+*/
 #![allow(dead_code)]
-#![allow(unused_imports)]
+// #![allow(unused_imports)]
+#![allow(non_snake_case)]
+
 pub mod sketch_and_precondition;
 pub mod sketch_and_solve;
 pub mod sketch;

@@ -1,8 +1,4 @@
-#![allow(dead_code)]
-#![allow(warnings)]
-#![allow(unused_imports)]
-use nalgebra::{DMatrix, dmatrix, DVector};
-use crate::sketch;
+use nalgebra::DMatrix;
 use crate::lora_helpers;
 
 
@@ -11,19 +7,21 @@ TODO: Remove the use of clones and try to optimize performance wherever you can
  */
 
 
-
-// randomized SVD
 /**
-* Inputs:
-A: m x n matrix
-The returned approximation will have rank at most k
-The approximation produced by the randomized phase of the
-algorithm will attempt to A to within eps error, but will not produce
-an approximation of rank greater than k + s.
-* Output:
-The compact SVD of a low-rank approximation of A
+SVD for low-rank approximation of the input matrix
 
-This algorithm uses randomization to compute a
+* Inputs:
+`A` is `m x n` matrix, `k` is the rank of the approximation, `epsilon` is the error tolerance, and `s` is the oversampling parameter
+* Output:
+The compact SVD of a low-rank approximation of `A`
+
+
+The returned approximation will have rank at most `k``
+The approximation produced by the randomized phase of the
+algorithm will attempt to A to within `epsilon` error, but will not produce
+an approximation of rank greater than `k + s`.
+
+This uses randomization to compute a
 QB decomposition of A, then deterministically computes QB’s compact SVD, and
 finally truncates that SVD to a specified rank.
  */
@@ -52,46 +50,19 @@ pub fn rand_svd(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<
     return (U_final, S, V.transpose())
 }
 
-// assert k > 0
-// assert k <= min(A.shape)
-// if not np.isnan(tol):
-//     assert tol >= 0
-//     assert tol < np.inf
-// rng = np.random.default_rng(rng)
-// Q, B = self.qb(A, k + over, tol / 2, rng)
-// # B=Q^*A is necessary
-// C = B @ Q
-// lamb, U = la.eigh(C)
-// alamb = np.abs(lamb)
-// # d = number of columns in Q, d ≤ k + s
-// d = Q.shape[1]
-// r = min(k, d, np.count_nonzero(alamb > 10*np.finfo(float).eps))
-// I = np.argsort(-1*np.abs(alamb))[:r]
-// # indices of r largest components of |λ|
-// U = U[:, I]
-// lamb = lamb[I] 
-// V = Q @ U
-// return V, lamb
-
-
-
 
 /**
-Each randomized algorithm for low-rank SVD has a corresponding version that is
-specialized to Hermitian matrices. We recount those specialized algorithms here,
-and we mention an additional algorithm that is unique to the approximation of psd
-matrices. In general, we shall say that A is n × n and that the algorithms represent
-A_hat = V diag(λ)V∗, where V is a tall column-orthonormal matrix and λ is a vector
+Find approximations of the dominant eigenvectors and eigenvalues of a Hermitian matrix using randomization
+
+* Inputs:
+`A` is an `n x n` Hermitian matrix, `k` is the rank of the approximation, `epsilon` is the error tolerance, and `s` is the oversampling parameter
+
+* Output:
+Approximations of the dominant eigenvectors and eigenvalues of `A`
+
+
+This essentially finds an decomposition of an approximation `A_hat = V diag(λ)V^*`, where V is a tall column-orthonormal matrix and λ is a vector
 with entries sorted in decreasing order of absolute value
-
-Input:
-A is an n × n Hermitian matrix. The returned approximation will
-have rank at most k. The approximation produced by the randomized
-phase of the algorithm will attempt to A to within eps error, but will
-not produce an approximation of rank greater than k + s.
-
-Output:
-Approximations of the dominant eigenvectors and eigenvalues of A.
 */
 
 pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix<f64>, Vec<f64>) {
@@ -107,8 +78,8 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     
     let eig = C.symmetric_eigen();
 
-    let mut eigvals = eig.eigenvalues;
-    let mut eigvecs = eig.eigenvectors;
+    let eigvals = eig.eigenvalues;
+    let eigvecs = eig.eigenvectors;
 
 
     let abs_eigvals: Vec<(f64, usize)> = eigvals.iter().enumerate().map(|(i, &x)| (x.abs(), i)).collect();
@@ -118,7 +89,7 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
     
     indices.sort_by(|&i, &j| abs_eigvals[j].0.partial_cmp(&abs_eigvals[i].0).unwrap());
 
-    let d = Q.ncols();
+    // let d = Q.ncols();
     let r = k.min(eigvals.iter().count());
 
     // top r 
@@ -138,25 +109,22 @@ pub fn rand_evd1(A: &DMatrix<f64>, k: usize, epsilon: f64, s: usize) -> (DMatrix
 
 
 
-
-    
-// only for positive semi-definite matrices
-// For performance reasons we are not checking if the matrix is symmetric since that would lead to a performance hit
 /** 
+Find approximations of the dominant eigenvectors and eigenvalues of a positive semi-definite matrix using randomization
+ 
  * Inputs: 
- A is an n × n psd matrix. The returned approximation will have rank
-at most k, but the sketching operator used in the algorithm can have
-rank as high as k + s.
+`A` is an `n x n` psd matrix, `k` is the rank of the approximation, and `s` is the oversampling parameter
 * Output:
 Approximations of the dominant eigenvectors and eigenvalues of A
+
+This essentially finds an decomposition of an approximation `A_hat = V diag(λ)V^*`, where V is a tall column-orthonormal matrix and λ is a vector
+with entries sorted in decreasing order of absolute value
 */
 
 pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Vec<f64>), &'static str> {
     println!("Running REVD2");
-    // let S_wrapped = sketch::sketching_operator(sketch::DistributionType::Gaussian, A.nrows(), k+s);
-    // let S = S_wrapped.unwrap();
     
-    // assert that all the eigenvalues of A are nonnegative
+    // assert that all eigenvals are nonnegative
     let eig = A.clone().symmetric_eigen();
     let eigvals = &eig.eigenvalues;
     if eigvals.iter().any(|&x| x < 0.0) {
@@ -181,7 +149,7 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
     let mysvd = B.clone().svd(true, true);
 
     let V_binding = mysvd.u.unwrap();
-    let W_binding = mysvd.v_t.unwrap().transpose();
+    // let W_binding = mysvd.v_t.unwrap().transpose();
     let S_binding = DMatrix::from_diagonal(&mysvd.singular_values);
     let lambda = S_binding.iter().filter(|&&x| x > 0.0).map(|x| x*x).collect::<Vec<f64>>();
 
@@ -200,14 +168,9 @@ pub fn rand_evd2(A:&DMatrix<f64>, k:usize, s: usize) -> Result<(DMatrix<f64>, Ve
 #[cfg(test)]
 mod test_randsvd
 {
-    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, check_approx_equal};
-    use crate::lora_helpers;
-    use crate::lora_drivers;
-    use std::time::Instant;
+    use crate::test_assist::{generate_random_matrix, check_approx_equal};
     use approx::assert_relative_eq;
     use super::*;
-
-
 
     #[test]
     fn test_rand_svd_compare() {
@@ -241,7 +204,7 @@ mod test_randsvd
         println!("Orig Trunc Dims: {:?}", orig_trunc.shape());
 
 
-        if (!check_approx_equal(&approx, &orig_trunc, 1.0)) {
+        if !check_approx_equal(&approx, &orig_trunc, 1.0) {
             println!("Exceeding tolerance")
         }
         else {
@@ -276,10 +239,10 @@ mod test_randsvd
         let s = 2;
 
         let (U, S, V) = rand_svd(&a, k, epsilon, s);
-        // assert_eq!(U.ncols(), k);
-        // assert_eq!(S.nrows(), k);
-        // assert_eq!(S.ncols(), k);
-        // assert_eq!(V.ncols(), k);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.nrows(), k);
     }
 
     #[test]
@@ -308,10 +271,10 @@ mod test_randsvd
         let s = 2;
 
         let (U, S, V) = rand_svd(&a, k, epsilon, s);
-        // assert_eq!(U.ncols(), k);
-        // assert_eq!(S.nrows(), k);
-        // assert_eq!(S.ncols(), k);
-        // assert_eq!(V.ncols(), k);
+        assert_eq!(U.ncols(), k);
+        assert_eq!(S.nrows(), k);
+        assert_eq!(S.ncols(), k);
+        assert_eq!(V.nrows(), k);
     }
 
     #[test]
@@ -340,14 +303,14 @@ mod test_randsvd
         assert_eq!(S.ncols(), k);
         assert_eq!(V.nrows(), k);
         
-        if (!check_approx_equal(&U, &u_det.into(), 1.0)) {
+        if !check_approx_equal(&U, &u_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
-        if (!check_approx_equal(&S, &s_det.into(), 1.0)) {
+        if !check_approx_equal(&S, &s_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
 
-        if (!check_approx_equal(&V, &v_det.into(), 1.0)) {
+        if !check_approx_equal(&V, &v_det.into(), 1.0) {
             println!("Exceeding tolerance")
         }
 
@@ -378,7 +341,7 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let (U, _, _) = rand_svd(&a, k, epsilon, s);
 
         println!("U*U_trans: {}", &U * &U.transpose());
         assert_relative_eq!(U.transpose() * &U, DMatrix::identity(k, k), epsilon = 1.0);
@@ -393,7 +356,7 @@ mod test_randsvd
         let epsilon = 1e-6;
         let s = 2;
 
-        let (U, S, V) = rand_svd(&a, k, epsilon, s);
+        let (_, S, _) = rand_svd(&a, k, epsilon, s);
         let singular_values: Vec<f64> = S.diagonal().iter().cloned().collect();
         let mut sorted_singular_values = singular_values.clone();
         sorted_singular_values.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -421,10 +384,10 @@ mod test_randsvd
 mod test_randevd1
 {
     use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix};
-    use crate::lora_helpers;
     use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
+    use nalgebra::{DMatrix, DVector};
     use super::*;
 
     #[test]
@@ -490,10 +453,7 @@ mod test_randevd1
 
         let k = dims - 2;
         let epsilon= 0.01;
-        let s = 5;
         
-        let k = 2;
-        let epsilon = 1e-6;
         let s = 1;
 
         println!("Running test_rand_evd1");
@@ -548,7 +508,7 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let (V, _) = rand_evd1(&a, k, epsilon, s);
         assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
     }
 
@@ -559,7 +519,7 @@ mod test_randevd1
         let epsilon = 1e-6;
         let s = 2;
 
-        let (V, lambda) = rand_evd1(&a, k, epsilon, s);
+        let (_, lambda) = rand_evd1(&a, k, epsilon, s);
         let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
         let mut sorted_lambda = abs_lambda.clone();
         sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -586,11 +546,11 @@ mod test_randevd1
 #[cfg(test)]
 mod test_randevd2
 {
-    use crate::test_assist::{generate_random_matrix, generate_random_hermitian_matrix, generate_random_psd_matrix};
-    use crate::lora_helpers;
+    use crate::test_assist::generate_random_psd_matrix;
     use crate::lora_drivers;
     use std::time::Instant;
     use approx::assert_relative_eq;
+    use nalgebra::{DMatrix, DVector};
     use super::*;
 
     #[test]
@@ -693,7 +653,7 @@ mod test_randevd2
 
         let result = rand_evd2(&a, k, s);
         assert!(result.is_ok());
-        let (V, lambda) = result.unwrap();
+        let (V, _) = result.unwrap();
         assert_relative_eq!(V.transpose() * &V, DMatrix::identity(k, k), epsilon = 1e-6);
     }
 
@@ -705,7 +665,7 @@ mod test_randevd2
 
         let result = rand_evd2(&a, k, s);
         assert!(result.is_ok());
-        let (V, lambda) = result.unwrap();
+        let (_, lambda) = result.unwrap();
         let abs_lambda: Vec<f64> = lambda.iter().map(|&x| x.abs()).collect();
         let mut sorted_lambda = abs_lambda.clone();
         sorted_lambda.sort_by(|a, b| b.partial_cmp(a).unwrap());
@@ -736,7 +696,6 @@ mod test_randevd2
         let A_rand_psd = generate_random_psd_matrix(dims);
 
         let k = 3;
-        let epsilon= 0.01;
         let s = 0;
 
         let tick = Instant::now();
