@@ -186,7 +186,7 @@ mod svd_benchmarks {
         Ok(())
     }
 
-    #[test]
+    // #[test]
     pub fn comprehensive_svd_benchmark() {
         println!("\n============ Comprehensive SVD Benchmark ============\n");
         
@@ -230,20 +230,20 @@ mod evd1_benchmarks {
     fn benchmark_evd(dims: usize, k: usize) -> EVDBenchmarkResult {
         // Generate a symmetric positive definite matrix
         println!("Dims: {}", dims);
-        let A_rand = generate_random_matrix(dims, dims);
-        let A_rand_psd = &A_rand * &A_rand.transpose();
+        let a_rand = generate_random_matrix(dims, dims);
+        let a_rand_psd = &a_rand * &a_rand.transpose();
         
         let epsilon = 1e-6;
         let s = 2;
 
         // Randomized Eigenvalue Decomposition
         let tick = Instant::now();
-        let (v_rand, lambda_rand) = rand_evd1(&A_rand_psd, k, epsilon, s);
+        let (v_rand, lambda_rand) = rand_evd1(&a_rand_psd, k, epsilon, s);
         let rand_evd_time = tick.elapsed();
 
         // Deterministic Eigenvalue Decomposition
         let tick = Instant::now();
-        let normal_evd = A_rand_psd.symmetric_eigen();
+        let normal_evd = a_rand_psd.symmetric_eigen();
         let det_evd_time = tick.elapsed();
 
         // Extract top k eigenvectors and eigenvalues from deterministic EVD
@@ -298,10 +298,10 @@ mod evd1_benchmarks {
         (350, 175),  // Medium matrix
         (400, 200),  // Medium matrix
         // (450, 225),  // Medium matrix
-        (500, 250),  // Medium matrix
-        (1000, 500), // Large matrix
-        (2000, 1000),// Very large matrix
-        (4000, 2000),
+        // (500, 250),  // Medium matrix
+        // (1000, 500), // Large matrix
+        // (2000, 1000),// Very large matrix
+        // (4000, 2000),
     ];
 
         sizes.iter()
@@ -389,7 +389,7 @@ mod evd1_benchmarks {
         Ok(())
     }
 
-    #[test]
+    // #[test]
     pub fn comprehensive_evd1_benchmark() {
         println!("\n============ Comprehensive EVD Benchmark ============\n");
         
