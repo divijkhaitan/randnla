@@ -1,4 +1,4 @@
-# randblas
+# randblas-rust
 
 A package for randomized numerical linear algebra written in Rust by Divij Khaitan and Saptarishi Dhanuka based on [Randomized Numerical Linear Algebra : A Perspective on the Field With an Eye to Software](https://arxiv.org/abs/2302.11474) monograph  and the corresponding C++ codebase [RandLAPACK](https://github.com/BallisticLA/RandLAPACK)
 
@@ -62,7 +62,8 @@ src/
 - [`lora_helpers.rs`](./src/lora_helpers.rs): Helpers for drivers
 
 ### Testing & Benchmarks
-- [`benchmarks.rs`](./src/benchmarksrs): Performance benchmarking `(__INCOMPLETE RIGHT NOW__ since not needed by deadline)`
+- Tests are contained in the same `.rs` files as the functions that we have implemented
+- [`benchmarks.rs`](./src/benchmarksrs): Performance benchmarking `(INCOMPLETE RIGHT NOW since not needed by deadline)`
   - SVD benchmarks 
   - Eigendecomposition benchmarks
 - [`main.rs`](./src/main.rs): Contains some more performance related code (times out after 5 min)
@@ -78,7 +79,7 @@ git clone https://github.com/divijkhaitan/randnla.git
 ```
 2. View documentation
 ```bash
-cargo doc --open
+cargo doc --open --no-deps
 ```
 3. Build the project
 ```bash

@@ -26,13 +26,9 @@ pub fn cgls(
     let n = a.ncols();
 
     // Initial guess
-    let mut x = x.unwrap_or_else(|| DMatrix::from_element(1, n , 0.0 as f64));
+    let mut x = x.unwrap_or_else(|| DMatrix::from_element(n, 1 , 0.0 as f64));
     
     // Initial residual r = b - A * x
-    println!("Reached here");
-    println!("{:?}", a);
-    println!("{:?}", x);
-    println!("{:?}", b);
     let mut r = b - a * &x;              
     let s = a.transpose() * &r;
     let mut p = s.clone();
@@ -130,6 +126,63 @@ mod test_conjugate_gradient {
     use super::*;
     use crate::test_assist::{self, generate_random_matrix};
 
+
+    #[test]
+    fn test_cgls_converges() {
+        let a = DMatrix::from_row_slice(3, 3, &[
+            4.0, 1.0, 2.0,
+            1.0, 3.0, 0.0,
+            2.0, 0.0, 1.0
+        ]);
+        let b = DMatrix::from_row_slice(3, 1, &[4.0, 2.0, 2.0]);
+        let tolerance = 3.0;
+        let num_iterations = 100;
+        let x = None;
+
+        let result = cgls(&a, &b, tolerance, num_iterations, x);
+        let expected = DMatrix::from_row_slice(3, 1, &[0.0, 0.0, 0.0]); // Expected result should be calculated
+        let error= result - expected;
+        println!("result-exp: {:?}", error.norm());
+
+        assert!(error.norm() < tolerance);
+    }
+
+    #[test]
+    fn test_cgls_with_initial_guess() {
+        let a = DMatrix::from_row_slice(3, 3, &[
+            4.0, 1.0, 2.0,
+            1.0, 3.0, 0.0,
+            2.0, 0.0, 1.0
+        ]);
+        let b = DMatrix::from_row_slice(3, 1, &[4.0, 2.0, 2.0]);
+        let tolerance = 3.0;
+        let num_iterations = 100;
+        let initial_guess = DMatrix::from_row_slice(3, 1, &[1.0, 1.0, 1.0]);
+
+        let result = cgls(&a, &b, tolerance, num_iterations, Some(initial_guess));
+        let expected = DMatrix::from_row_slice(3, 1, &[0.0, 0.0, 0.0]); // Expected result should be calculated
+    
+        assert!((result - expected).norm() < tolerance);
+    }
+
+    #[test]
+    fn test_cgls_does_not_converge() {
+        let a = DMatrix::from_row_slice(3, 3, &[
+            4.0, 1.0, 2.0,
+            1.0, 3.0, 0.0,
+            2.0, 0.0, 1.0
+        ]);
+        let b = DMatrix::from_row_slice(3, 1, &[4.0, 2.0, 2.0]);
+        let tolerance = 1e-20;
+        let num_iterations = 1;
+        let x = None;
+
+        let result = cgls(&a, &b, tolerance, num_iterations, x);
+        let expected = DMatrix::from_row_slice(3, 1, &[0.0, 0.0, 0.0]); // Expected result should be calculated
+
+        assert!((result - expected).norm() > tolerance);
+    }
+
     #[test]
     fn test_conjugate_gradient() {
         let a = DMatrix::from_row_slice(3, 3, &[4.0, 1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 3.0]);
@@ -138,6 +191,7 @@ mod test_conjugate_gradient {
         let x_cg = conjugate_grad(&a, &b, Some(x));
         assert!(x_cg.is_ok());
         let error = verify_solution(&a, &b, &x_cg.unwrap());
+        println!("error: {:?}", error);
         assert!(error < 1e-10);
     }
 
