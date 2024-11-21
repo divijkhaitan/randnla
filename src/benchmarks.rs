@@ -300,7 +300,8 @@ mod evd1_benchmarks {
         // (450, 225),  // Medium matrix
         (500, 250),  // Medium matrix
         (1000, 500), // Large matrix
-        // (2000, 1000),// Very large matrix
+        (2000, 1000),// Very large matrix
+        (4000, 2000),
     ];
 
         sizes.iter()
